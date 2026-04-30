@@ -66,15 +66,15 @@ export default function Home() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-8 flex gap-3"
           >
-            <Button size="lg" asChild>
-              <Link href="/todolist#list">
+            <Link href="/todolist#list" passHref>
+              <Button size="lg">
                 เริ่มใช้งาน
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" size="lg" asChild>
-              <Link href="/todolist#dashboard">ดู Dashboard</Link>
-            </Button>
+              </Button>
+            </Link>
+            <Link href="/todolist#dashboard" passHref>
+              <Button variant="outline" size="lg">ดู Dashboard</Button>
+            </Link>
           </motion.div>
 
           <motion.div
@@ -85,7 +85,7 @@ export default function Home() {
           >
             {[
               { icon: ListTodo, label: "รายการทั้งหมด", value: "∞" },
-              { icon: CheckCircle2, label: "ทำเสร็จแล้ว", value: stats.totalCompleted.toLocaleString() },
+              { icon: CheckCircle2, label: "ทำเสร็จแล้ว", value: (stats?.totalCompleted ?? 0).toLocaleString() },
               { icon: Trophy, label: "ผู้ใช้งาน", value: "∞" },
             ].map((item) => (
               <div
