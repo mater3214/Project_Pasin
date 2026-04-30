@@ -11,7 +11,6 @@ export interface ButtonProps
     | "ghost"
     | "link";
   size?: "default" | "sm" | "lg" | "icon";
-  asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

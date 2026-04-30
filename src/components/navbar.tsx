@@ -36,9 +36,9 @@ export default function Navbar() {
         </nav>
 
         <div className="hidden md:block">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/todolist#list">เริ่มใช้งาน</Link>
-          </Button>
+          <Link href="/todolist#list" passHref>
+            <Button variant="outline" size="sm">เริ่มใช้งาน</Button>
+          </Link>
         </div>
 
         <button
@@ -64,11 +64,9 @@ export default function Navbar() {
             Todolist
           </Link>
           <div className="mt-3">
-            <Button size="sm" asChild className="w-full">
-              <Link href="/todolist#list" onClick={() => setMobileOpen(false)}>
-                เริ่มใช้งาน
-              </Link>
-            </Button>
+            <Link href="/todolist#list" onClick={() => setMobileOpen(false)} passHref>
+              <Button size="sm" className="w-full">เริ่มใช้งาน</Button>
+            </Link>
           </div>
         </motion.div>
       )}

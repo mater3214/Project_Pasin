@@ -23,7 +23,7 @@ function useDialog() {
   return ctx;
 }
 
-const DialogTrigger = ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => {
+const DialogTrigger = ({ children }: { children: React.ReactNode }) => {
   const { setOpen } = useDialog();
   return (
     <span onClick={() => setOpen(true)} className="inline-block cursor-pointer">
