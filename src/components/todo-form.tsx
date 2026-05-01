@@ -7,21 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { TodoPriority, TodoTemplate } from "@/types";
 import {
-  Calendar,
   Plus,
   MapPin,
-  Flame,
   Bookmark,
   BookmarkCheck,
   X,
-  Zap,
   Sparkles,
-  ChevronUp,
-  ChevronDown,
   Star,
-  Clock,
   FileText,
   Send,
+  Clock,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,13 +32,37 @@ interface TodoFormProps {
   }) => void;
 }
 
+const PRIORITY_CONFIG: Record<TodoPriority, { label: string; icon: string; pts: number; color: string; bg: string; ring: string; text: string }> = {
+  1: { label: "ต่ำ",     icon: "💎", pts: 25,   color: "from-emerald-400 to-teal-500",   bg: "bg-emerald-50",  ring: "ring-emerald-300", text: "text-emerald-600" },
+  2: { label: "กลาง",   icon: "⚡", pts: 50,   color: "from-amber-400 to-orange-500",    bg: "bg-amber-50",    ring: "ring-amber-300",   text: "text-amber-600" },
+  3: { label: "สูง",     icon: "🔥", pts: 100,  color: "from-rose-400 to-red-500",        bg: "bg-rose-50",     ring: "ring-rose-300",    text: "text-rose-600" },
+  4: { label: "สูงมาก", icon: "💥", pts: 200,  color: "from-purple-400 to-violet-500",   bg: "bg-purple-50",   ring: "ring-purple-300",  text: "text-purple-600" },
+  5: { label: "สำคัญ",  icon: "⭐", pts: 1000, color: "from-yellow-400 to-amber-500",    bg: "bg-yellow-50",   ring: "ring-yellow-400",  text: "text-yellow-600" },
+};
+
+function parseDateInput(input: string): string | undefined {
+  if (!input.trim()) return undefined;
+  const cleaned = input.trim().replace(/\//g, "-").replace(/\s+/g, " ");
+  // Format: DD-MM-YYYY HH:MM or DD-MM-YYYY
+  const match = cleaned.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (match) {
+    const [, dd, mm, yyyy, hh, min] = match;
+    const hour = hh || "00";
+    const minute = min || "00";
+    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute}:00`;
+  }
+  // Try ISO/native format
+  const d = new Date(cleaned);
+  if (!isNaN(d.getTime())) return d.toISOString();
+  return undefined;
+}
+
 export default function TodoForm({ onAdd }: TodoFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [priority, setPriority] = useState<TodoPriority>(1);
-  const [dueDate, setDueDate] = useState("");
-  const [points, setPoints] = useState(5);
+  const [dateText, setDateText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -58,24 +78,26 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
       .catch(() => {});
   }, []);
 
+  const currentPts = PRIORITY_CONFIG[priority].pts;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setSubmitting(true);
+    const dueDate = parseDateInput(dateText);
     onAdd({
       title: title.trim(),
       description: description.trim() || undefined,
       location: location.trim() || undefined,
       priority,
-      due_date: dueDate || undefined,
-      points_reward: points,
+      due_date: dueDate,
+      points_reward: currentPts,
     });
     setTitle("");
     setDescription("");
     setLocation("");
     setPriority(1);
-    setDueDate("");
-    setPoints(5);
+    setDateText("");
     setShowDetails(false);
     setTimeout(() => setSubmitting(false), 500);
   };
@@ -94,7 +116,7 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
           description: description.trim() || null,
           location: location.trim() || null,
           priority,
-          points_reward: points,
+          points_reward: currentPts,
         }),
       });
       if (res.ok) {
@@ -112,7 +134,6 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
     setDescription(t.description || "");
     setLocation(t.location || "");
     setPriority(t.priority);
-    setPoints(t.points_reward);
     setShowTemplates(false);
     setShowDetails(true);
     toast.success("โหลดเทมเพลตแล้ว");
@@ -124,14 +145,6 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
       setTemplates((prev) => prev.filter((t) => t.id !== id));
     } catch {}
   };
-
-  const priorityConfig = {
-    1: { label: "ต่ำ", color: "from-emerald-400 to-teal-500", bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-300", icon: "💎" },
-    2: { label: "กลาง", color: "from-amber-400 to-orange-500", bg: "bg-amber-50", text: "text-amber-600", ring: "ring-amber-300", icon: "⚡" },
-    3: { label: "สูง", color: "from-rose-400 to-red-500", bg: "bg-rose-50", text: "text-rose-600", ring: "ring-rose-300", icon: "🔥" },
-  };
-
-  const pointsPercent = ((points - 1) / 99) * 100;
 
   return (
     <motion.div
@@ -151,7 +164,7 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
           <form onSubmit={handleSubmit}>
             {/* Main input area */}
             <div className="p-5 pb-3">
-              {/* Title input — hero field */}
+              {/* Title input */}
               <div className="relative group">
                 <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/40"}`}>
                   <Sparkles className="h-4 w-4" />
@@ -167,12 +180,11 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
                 />
               </div>
 
-              {/* Quick action bar */}
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {/* Priority chips */}
-                  {([1, 2, 3] as TodoPriority[]).map((p) => {
-                    const cfg = priorityConfig[p];
+              {/* Priority selection — 5 levels */}
+              <div className="mt-3">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {([1, 2, 3, 4, 5] as TodoPriority[]).map((p) => {
+                    const cfg = PRIORITY_CONFIG[p];
                     const isActive = priority === p;
                     return (
                       <motion.button
@@ -181,7 +193,7 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
                         onClick={() => setPriority(p)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`relative flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                        className={`relative flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
                           isActive
                             ? `${cfg.bg} ${cfg.text} ring-2 ${cfg.ring} shadow-sm`
                             : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
@@ -189,6 +201,7 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
                       >
                         <span className="text-[11px]">{cfg.icon}</span>
                         {cfg.label}
+                        {p === 5 && <Star className="h-2.5 w-2.5 fill-current" />}
                         {isActive && (
                           <motion.div
                             layoutId="priorityIndicator"
@@ -201,61 +214,42 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
                     );
                   })}
 
-                  {/* Divider */}
-                  <div className="h-5 w-px bg-border/50 mx-1" />
-
-                  {/* Points control */}
-                  <div className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-chart-3/5 to-chart-4/5 pl-2 pr-1 py-0.5">
-                    <Zap className="h-3 w-3 text-chart-3" />
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={points}
-                      onChange={(e) => setPoints(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
-                      className="w-7 bg-transparent text-xs font-bold text-chart-3 text-center outline-none"
-                    />
-                    <div className="flex flex-col">
-                      <button type="button" onClick={() => setPoints(Math.min(100, points + 1))} className="text-muted-foreground/40 hover:text-chart-3 transition-colors">
-                        <ChevronUp className="h-2.5 w-2.5" />
-                      </button>
-                      <button type="button" onClick={() => setPoints(Math.max(1, points - 1))} className="text-muted-foreground/40 hover:text-chart-3 transition-colors">
-                        <ChevronDown className="h-2.5 w-2.5" />
-                      </button>
-                    </div>
+                  {/* Points display */}
+                  <div className="ml-auto flex items-center gap-1 rounded-lg bg-gradient-to-r from-chart-3/5 to-chart-4/5 px-3 py-1.5">
+                    <span className="text-xs font-bold text-chart-3">+{currentPts} pts</span>
                   </div>
                 </div>
+              </div>
 
-                {/* Right actions */}
-                <div className="flex items-center gap-1">
+              {/* Quick action buttons */}
+              <div className="mt-2 flex items-center justify-end gap-1">
+                <motion.button
+                  type="button"
+                  onClick={() => setShowDetails(!showDetails)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+                    showDetails ? "bg-primary/10 text-primary" : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-secondary/50"
+                  }`}
+                >
+                  <FileText className="h-3 w-3" />
+                  รายละเอียด
+                </motion.button>
+
+                {templates.length > 0 && (
                   <motion.button
                     type="button"
-                    onClick={() => setShowDetails(!showDetails)}
+                    onClick={() => setShowTemplates(!showTemplates)}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all ${
-                      showDetails ? "bg-primary/10 text-primary" : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-secondary/50"
+                      showTemplates ? "bg-chart-5/10 text-chart-5" : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-secondary/50"
                     }`}
                   >
-                    <FileText className="h-3 w-3" />
-                    รายละเอียด
+                    <Bookmark className="h-3 w-3" />
+                    {templates.length}
                   </motion.button>
-
-                  {templates.length > 0 && (
-                    <motion.button
-                      type="button"
-                      onClick={() => setShowTemplates(!showTemplates)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all ${
-                        showTemplates ? "bg-chart-5/10 text-chart-5" : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-secondary/50"
-                      }`}
-                    >
-                      <Bookmark className="h-3 w-3" />
-                      {templates.length}
-                    </motion.button>
-                  )}
-                </div>
+                )}
               </div>
             </div>
 
@@ -295,36 +289,34 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
                         />
                       </div>
                       <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                        <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
                         <Input
-                          type="datetime-local"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
+                          placeholder="วัน/เดือน/ปี เวลา เช่น 15/06/2026 14:30"
+                          value={dateText}
+                          onChange={(e) => setDateText(e.target.value)}
                           className="h-9 rounded-lg pl-9 bg-secondary/20 border-0 text-sm focus-visible:ring-1 focus-visible:ring-primary/20"
                         />
                       </div>
                     </div>
 
-                    {/* Points slider */}
-                    <div className="flex items-center gap-3">
-                      <Star className="h-3.5 w-3.5 text-chart-3/60" />
-                      <div className="relative flex-1 h-1.5 rounded-full bg-secondary/40 overflow-hidden">
-                        <motion.div
-                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400"
-                          initial={false}
-                          animate={{ width: `${pointsPercent}%` }}
-                          transition={{ duration: 0.3, ease: "easeOut" }}
-                        />
-                        <input
-                          type="range"
-                          min="1"
-                          max="100"
-                          value={points}
-                          onChange={(e) => setPoints(Number(e.target.value))}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                      </div>
-                      <span className="text-[11px] font-semibold text-chart-3 tabular-nums w-6 text-right">{points}</span>
+                    {/* Quick date buttons */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Clock className="h-3 w-3 text-muted-foreground/40" />
+                      {[
+                        { label: "วันนี้", fn: () => { const d = new Date(); setDateText(`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()} 23:59`); }},
+                        { label: "พรุ่งนี้", fn: () => { const d = new Date(); d.setDate(d.getDate()+1); setDateText(`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()} 23:59`); }},
+                        { label: "3 วัน", fn: () => { const d = new Date(); d.setDate(d.getDate()+3); setDateText(`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()} 23:59`); }},
+                        { label: "สัปดาห์หน้า", fn: () => { const d = new Date(); d.setDate(d.getDate()+7); setDateText(`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()} 23:59`); }},
+                      ].map((q) => (
+                        <button
+                          key={q.label}
+                          type="button"
+                          onClick={q.fn}
+                          className="rounded-md bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          {q.label}
+                        </button>
+                      ))}
                     </div>
 
                     {/* Save as template */}
@@ -359,11 +351,11 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
                         onClick={() => loadTemplate(t)}
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[10px]">{priorityConfig[t.priority].icon}</span>
+                          <span className="text-[10px]">{PRIORITY_CONFIG[t.priority]?.icon || "💎"}</span>
                           <span className="truncate text-xs font-medium">{t.title}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-semibold text-chart-3">+{t.points_reward}</span>
+                          <span className="text-[10px] font-semibold text-chart-3">+{PRIORITY_CONFIG[t.priority]?.pts || t.points_reward}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); deleteTemplate(t.id); }}
@@ -399,7 +391,6 @@ export default function TodoForm({ onAdd }: TodoFormProps) {
         </CardContent>
       </Card>
 
-      {/* Shimmer keyframe */}
       <style jsx global>{`
         @keyframes shimmer {
           0%, 100% { background-position: 0% 50%; }

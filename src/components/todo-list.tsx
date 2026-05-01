@@ -40,9 +40,11 @@ export default function TodoList({ todos, loading, onToggle, onDelete }: TodoLis
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const priorityConfig: Record<TodoPriority, { label: string; emoji: string; color: string; bg: string }> = {
-    1: { label: "ต่ำ", emoji: "🟢", color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-100" },
-    2: { label: "กลาง", emoji: "🟡", color: "text-amber-600", bg: "bg-amber-50 border-amber-100" },
-    3: { label: "สูง", emoji: "🔴", color: "text-red-600", bg: "bg-red-50 border-red-100" },
+    1: { label: "ต่ำ", emoji: "💎", color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-100" },
+    2: { label: "กลาง", emoji: "⚡", color: "text-amber-600", bg: "bg-amber-50 border-amber-100" },
+    3: { label: "สูง", emoji: "🔥", color: "text-red-600", bg: "bg-red-50 border-red-100" },
+    4: { label: "สูงมาก", emoji: "💥", color: "text-purple-600", bg: "bg-purple-50 border-purple-100" },
+    5: { label: "สำคัญ", emoji: "⭐", color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200" },
   };
 
   const filterTabs = [

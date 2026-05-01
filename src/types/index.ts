@@ -13,7 +13,7 @@ export interface User {
 }
 
 export type TodoStatus = 'pending' | 'completed';
-export type TodoPriority = 1 | 2 | 3;
+export type TodoPriority = 1 | 2 | 3 | 4 | 5;
 
 export interface Todo {
   id: string;
