@@ -115,10 +115,11 @@ export default function TodolistPage() {
   const addTodo = async (todo: {
     title: string;
     description?: string;
+    location?: string;
     priority: TodoPriority;
     due_date?: string;
+    points_reward: number;
   }) => {
-    const pointsReward = todo.priority * 5;
     try {
       const res = await fetch("/api/todos", {
         method: "POST",
@@ -126,7 +127,6 @@ export default function TodolistPage() {
         body: JSON.stringify({
           ...todo,
           user_id: userId,
-          points_reward: pointsReward,
         }),
       });
       if (res.ok) {

@@ -20,11 +20,23 @@ export interface Todo {
   user_id: string;
   title: string;
   description?: string;
+  location?: string;
   due_date?: string;
   priority: TodoPriority;
   status: TodoStatus;
   points_reward: number;
   is_notified: boolean;
+  created_at: string;
+}
+
+export interface TodoTemplate {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  priority: TodoPriority;
+  points_reward: number;
   created_at: string;
 }
 

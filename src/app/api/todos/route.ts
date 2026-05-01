@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { user_id, title, description, priority, due_date, points_reward } =
+    const { user_id, title, description, location, priority, due_date, points_reward } =
       body;
 
     if (!user_id || !title) {
@@ -108,14 +108,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const todo = await createTodo({
+    const insertData: any = {
       user_id: resolvedUserId,
       title,
       description,
       priority: (priority as TodoPriority) ?? 1,
       due_date: due_date ? new Date(due_date).toISOString() : undefined,
-      points_reward: points_reward ?? (priority ?? 1) * 5,
-    });
+      points_reward: Math.min(100, Math.max(1, points_reward ?? 5)),
+    };
+    if (location) insertData.location = location;
+
+    const todo = await createTodo(insertData);
 
     return NextResponse.json({ todo });
   } catch (error: any) {
