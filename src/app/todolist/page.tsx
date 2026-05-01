@@ -15,6 +15,7 @@ import {
   Trophy,
   ListTodo,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -33,10 +34,11 @@ export default function TodolistPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [rankUsers, setRankUsers] = useState<RankUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Fetch current user session
+  // Fetch current user session — redirect if not logged in
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
@@ -45,12 +47,12 @@ export default function TodolistPage() {
           setCurrentUser(d.user);
           setUserId(d.user.id);
         } else {
-          // Fallback to demo user if not logged in
-          setUserId("demo-user");
+          router.push("/auth");
         }
       })
-      .catch(() => setUserId("demo-user"));
-  }, []);
+      .catch(() => router.push("/auth"))
+      .finally(() => setAuthChecked(true));
+  }, [router]);
 
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
@@ -187,6 +189,15 @@ export default function TodolistPage() {
       toast.error("ลบรายการไม่สำเร็จ");
     }
   };
+
+  // Show loading while checking auth
+  if (!authChecked || !userId) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">

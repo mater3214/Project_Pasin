@@ -12,7 +12,17 @@ import {
   registerWebUser,
   linkLineAccount,
 } from "@/lib/supabase";
-import { getUserProfile, replyMessage, pushMessage, parseCommand } from "@/lib/line";
+import {
+  getUserProfile,
+  replyMessage,
+  replyFlexMessage,
+  pushFlexMessage,
+  parseCommand,
+  buildWelcomeFlex,
+  buildCredentialsFlex,
+  buildMenuFlex,
+  buildNeedRegisterFlex,
+} from "@/lib/line";
 import { Todo } from "@/types";
 
 type WebhookEvent = {
@@ -25,40 +35,50 @@ type WebhookEvent = {
 const channelSecret = process.env.LINE_CHANNEL_SECRET!;
 
 async function handleEvent(event: WebhookEvent) {
-  if (event.type !== "message" || !event.message || event.message.type !== "text") {
-    if (event.type === "follow") {
-      const profile = await getUserProfile(event.source.userId);
-      if (!profile) return;
-      let user = await getUserByLineId(event.source.userId);
-      if (!user) {
-        user = await createUser({
-          line_user_id: event.source.userId,
-          display_name: profile.displayName,
-          picture_url: profile.pictureUrl,
-          total_points: 0,
-        });
-      }
-      await pushMessage(
-        event.source.userId,
-        `ยินดีต้อนรับ ${profile.displayName}! พิมพ์ "ช่วยเหลือ" เพื่อดูวิธีใช้งาน`
-      );
+  // ─── Follow Event: Welcome + prompt registration ───
+  if (event.type === "follow") {
+    const profile = await getUserProfile(event.source.userId);
+    if (!profile) return;
+
+    // Create a basic user record (without web credentials)
+    let user = await getUserByLineId(event.source.userId);
+    if (!user) {
+      user = await createUser({
+        line_user_id: event.source.userId,
+        display_name: profile.displayName,
+        picture_url: profile.pictureUrl,
+        total_points: 0,
+      });
     }
+
+    // Send Flex welcome message prompting registration
+    await pushFlexMessage(
+      event.source.userId,
+      "ยินดีต้อนรับสู่ Todolish!",
+      buildWelcomeFlex(profile.displayName)
+    );
     return;
   }
 
-  const userId = event.source.userId;
+  // Only handle text messages
+  if (event.type !== "message" || !event.message || event.message.type !== "text") {
+    return;
+  }
+
+  const lineUserId = event.source.userId;
   const text = event.message.text;
   const replyToken = event.replyToken;
 
   if (!replyToken) return;
 
-  let dbUser = await getUserByLineId(userId);
+  // Get or create basic user
+  let dbUser = await getUserByLineId(lineUserId);
 
   if (!dbUser) {
-    const profile = await getUserProfile(userId);
+    const profile = await getUserProfile(lineUserId);
     if (!profile) return;
     dbUser = await createUser({
-      line_user_id: userId,
+      line_user_id: lineUserId,
       display_name: profile.displayName,
       picture_url: profile.pictureUrl,
       total_points: 0,
@@ -69,15 +89,64 @@ async function handleEvent(event: WebhookEvent) {
 
   const { command, args } = parseCommand(text);
 
-  const reply = async (msg: string) => {
-    await replyMessage(replyToken, msg);
-  };
+  // ─── Registration command (always available) ───
+  if (command === "สมัคร" || command === "register") {
+    const parts = args.split(/\s+/);
+    const name = parts[0];
+    const phone = parts[1];
 
+    if (!name || !phone) {
+      await replyMessage(replyToken, "ใช้: สมัคร [ชื่อ] [เบอร์โทร]\nตัวอย่าง: สมัคร สมชาย 0891234567");
+      return;
+    }
+
+    // Already registered?
+    if (dbUser.web_user_id) {
+      await replyFlexMessage(replyToken, "คุณมีบัญชีแล้ว", buildCredentialsFlex(
+        dbUser.display_name,
+        dbUser.web_user_id,
+        "(ใช้ password เดิม)"
+      ));
+      return;
+    }
+
+    const result = await registerWebUser(name, phone);
+    if (result) {
+      // Link LINE account to new web user
+      await linkLineAccount(result.user.id, lineUserId);
+      // Remove old orphan record if different
+      if (dbUser.id !== result.user.id) {
+        await getAdmin()
+          .from("users")
+          .delete()
+          .eq("id", dbUser.id)
+          .neq("id", result.user.id);
+      }
+
+      // Send beautiful Flex Message with credentials
+      await replyFlexMessage(
+        replyToken,
+        "สมัครสำเร็จ!",
+        buildCredentialsFlex(name, result.webUserId, result.password)
+      );
+    } else {
+      await replyMessage(replyToken, "สมัครไม่สำเร็จ กรุณาลองใหม่");
+    }
+    return;
+  }
+
+  // ─── Block all other commands if not registered ───
+  if (!dbUser.web_user_id) {
+    await replyFlexMessage(replyToken, "กรุณาสมัครสมาชิกก่อน", buildNeedRegisterFlex());
+    return;
+  }
+
+  // ─── Registered user commands ───
   switch (command) {
     case "เพิ่ม":
     case "add": {
       if (!args) {
-        await reply("ใช้: เพิ่ม [ชื่อรายการ] หรือ add [ชื่อ]");
+        await replyMessage(replyToken, "ใช้: เพิ่ม [ชื่อรายการ]\nตัวอย่าง: เพิ่ม ซื้อของ !สูง");
         return;
       }
       const priority = args.includes("!สูง")
@@ -94,9 +163,12 @@ async function handleEvent(event: WebhookEvent) {
         points_reward: points,
       });
       if (todo) {
-        await reply(`เพิ่มรายการ "${title}" เรียบร้อย (Priority: ${priority}, +${points}pts)`);
+        await replyMessage(
+          replyToken,
+          `✅ เพิ่มรายการ "${title}" เรียบร้อย\nPriority: ${"⭐".repeat(priority)} | +${points} pts`
+        );
       } else {
-        await reply("เพิ่มรายการไม่สำเร็จ กรุณาลองใหม่");
+        await replyMessage(replyToken, "❌ เพิ่มรายการไม่สำเร็จ กรุณาลองใหม่");
       }
       break;
     }
@@ -104,21 +176,21 @@ async function handleEvent(event: WebhookEvent) {
     case "ลบ":
     case "delete": {
       if (!args) {
-        await reply("ใช้: ลบ [เลข] หรือ delete [id]");
+        await replyMessage(replyToken, "ใช้: ลบ [เลข]\nตัวอย่าง: ลบ 1");
         return;
       }
       const todos = await getTodosByUser(dbUser.id);
       const idx = parseInt(args, 10);
       if (isNaN(idx) || idx < 1 || idx > todos.length) {
-        await reply(`ไม่พบรายการที่ ${idx} ในรายการของคุณ (มี ${todos.length} รายการ)`);
+        await replyMessage(replyToken, `❌ ไม่พบรายการที่ ${idx} (มี ${todos.length} รายการ)`);
         return;
       }
       const target = todos[idx - 1];
       const success = await deleteTodo(target.id);
       if (success) {
-        await reply(`ลบรายการ "${target.title}" เรียบร้อย`);
+        await replyMessage(replyToken, `🗑️ ลบรายการ "${target.title}" เรียบร้อย`);
       } else {
-        await reply("ลบรายการไม่สำเร็จ");
+        await replyMessage(replyToken, "❌ ลบรายการไม่สำเร็จ");
       }
       break;
     }
@@ -127,35 +199,35 @@ async function handleEvent(event: WebhookEvent) {
     case "list": {
       const todos = await getTodosByUser(dbUser.id);
       if (todos.length === 0) {
-        await reply("คุณยังไม่มีรายการที่ต้องทำ");
+        await replyMessage(replyToken, "📋 คุณยังไม่มีรายการ\nพิมพ์ \"เพิ่ม [ชื่อ]\" เพื่อสร้างรายการใหม่");
         return;
       }
       const list = todos
         .map((t: Todo, i: number) => {
-          const status = t.status === "completed" ? "[x]" : "[ ]";
-          const pri = "!".repeat(t.priority);
-          return `${i + 1}. ${status} ${t.title} ${pri}`;
+          const status = t.status === "completed" ? "✅" : "⬜";
+          const pri = t.priority === 3 ? "🔴" : t.priority === 2 ? "🟡" : "🟢";
+          return `${i + 1}. ${status} ${t.title} ${pri} +${t.points_reward}pts`;
         })
         .join("\n");
-      await reply(`รายการของคุณ:\n${list}`);
+      await replyMessage(replyToken, `📋 รายการของคุณ:\n\n${list}`);
       break;
     }
 
     case "เช็ค":
     case "done": {
       if (!args) {
-        await reply("ใช้: เช็ค [เลข] หรือ done [id]");
+        await replyMessage(replyToken, "ใช้: เช็ค [เลข]\nตัวอย่าง: เช็ค 1");
         return;
       }
       const todos = await getTodosByUser(dbUser.id);
       const idx = parseInt(args, 10);
       if (isNaN(idx) || idx < 1 || idx > todos.length) {
-        await reply(`ไม่พบรายการที่ ${idx}`);
+        await replyMessage(replyToken, `❌ ไม่พบรายการที่ ${idx}`);
         return;
       }
       const target = todos[idx - 1];
       if (target.status === "completed") {
-        await reply(`รายการ "${target.title}" เสร็จสิ้นไปแล้ว`);
+        await replyMessage(replyToken, `✅ "${target.title}" เสร็จสิ้นไปแล้ว`);
         return;
       }
       await updateTodo(target.id, { status: "completed" });
@@ -168,8 +240,9 @@ async function handleEvent(event: WebhookEvent) {
         user_id: dbUser.id,
         action: `completed (+${target.points_reward}pts)`,
       });
-      await reply(
-        `เยี่ยมมาก! ทำ "${target.title}" เสร็จแล้ว\n+${target.points_reward} คะแนน (รวม ${dbUser.total_points + target.points_reward} pts)`
+      await replyMessage(
+        replyToken,
+        `🎉 ทำ "${target.title}" เสร็จแล้ว!\n+${target.points_reward} คะแนน\n\n⭐ คะแนนรวม: ${dbUser.total_points + target.points_reward} pts`
       );
       break;
     }
@@ -177,73 +250,31 @@ async function handleEvent(event: WebhookEvent) {
     case "คะแนน":
     case "point": {
       const stats = await getDashboardStats(dbUser.id);
-      await reply(
-        `คะแนนรวมของคุณ: ${stats.totalPoints} pts\nเสร็จแล้ว: ${stats.completed} / ${stats.total} รายการ`
+      await replyMessage(
+        replyToken,
+        `⭐ คะแนนรวม: ${stats.totalPoints} pts\n✅ เสร็จแล้ว: ${stats.completed}/${stats.total} รายการ`
       );
       break;
     }
 
     case "ช่วยเหลือ":
     case "help": {
-      await reply(
-        `คำสั่งที่ใช้ได้:\n` +
-          `เพิ่ม [ชื่อ] - สร้าง Todo\n` +
-          `ลบ [เลข] - ลบรายการ\n` +
-          `รายการ - ดูรายการทั้งหมด\n` +
-          `เช็ค [เลข] - ทำเครื่องหมายเสร็จ\n` +
-          `คะแนน - ดูคะแนนรวม\n` +
-          `สมัคร [ชื่อ] [เบอร์] - สมัครบัญชีเว็บ\n` +
-          `บัญชี - ดู User ID ของคุณ\n` +
-          `ช่วยเหลือ - แสดงวิธีใช้`
-      );
-      break;
-    }
-
-    case "สมัคร":
-    case "register": {
-      const parts = args.split(/\s+/);
-      const name = parts[0];
-      const phone = parts[1];
-      if (!name || !phone) {
-        await reply("ใช้: สมัคร [ชื่อ] [เบอร์โทร]");
-        return;
-      }
-      // Check if this LINE user already has an account
-      if (dbUser.web_user_id) {
-        await reply(`คุณมีบัญชีแล้ว\nUser ID: ${dbUser.web_user_id}`);
-        return;
-      }
-      const result = await registerWebUser(name, phone);
-      if (result) {
-        // Link LINE account to the new web user
-        await linkLineAccount(result.user.id, userId);
-        // Also update current dbUser's line_user_id if needed
-        await getAdmin()
-          .from("users")
-          .delete()
-          .eq("id", dbUser.id)
-          .neq("id", result.user.id);
-        await reply(
-          `สมัครสำเร็จ!\n\nUser ID: ${result.webUserId}\nPassword: ${result.password}\n\nเก็บข้อมูลนี้ไว้สำหรับเข้าสู่ระบบบนเว็บ`
-        );
-      } else {
-        await reply("สมัครไม่สำเร็จ กรุณาลองใหม่");
-      }
+      await replyFlexMessage(replyToken, "คำสั่ง Todolish", buildMenuFlex());
       break;
     }
 
     case "บัญชี":
     case "account": {
-      if (dbUser.web_user_id) {
-        await reply(`บัญชีของคุณ:\nUser ID: ${dbUser.web_user_id}\nใช้สำหรับเข้าสู่ระบบบนเว็บ`);
-      } else {
-        await reply('คุณยังไม่มีบัญชีเว็บ พิมพ์ "สมัคร [ชื่อ] [เบอร์]" เพื่อสมัคร');
-      }
+      await replyFlexMessage(replyToken, "บัญชีของคุณ", buildCredentialsFlex(
+        dbUser.display_name,
+        dbUser.web_user_id || "(ไม่มี)",
+        "(ใช้ password เดิม)"
+      ));
       break;
     }
 
     default: {
-      await reply('ไม่เข้าใจคำสั่ง พิมพ์ "ช่วยเหลือ" เพื่อดูวิธีใช้');
+      await replyFlexMessage(replyToken, "กรุณาสมัครหรือดูวิธีใช้", buildMenuFlex());
     }
   }
 }
