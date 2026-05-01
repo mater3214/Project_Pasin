@@ -198,13 +198,7 @@ async function handleEvent(event: WebhookEvent) {
       case "เพิ่ม":
       case "add": {
         if (!args) {
-          await replyTextWithQuickReply(replyToken,
-            "เพิ่มรายการใหม่\n\n" +
-            "วิธีง่าย:\nเพิ่ม ชื่อรายการ\n(จะให้เลือกความสำคัญ)\n\n" +
-            "วิธีละเอียด:\nเพิ่ม ชื่อ | ความสำคัญ | รายละเอียด | สถานที่ | วัน/เดือน/ปี เวลา\n\n" +
-            "ตัวอย่าง:\nเพิ่ม ประชุม | สูง\nเพิ่ม ส่งงาน | สำคัญ | รายงาน | ห้อง301 | 15/06/2026 14:30",
-            mainQuickReply()
-          );
+          await replyFlexWithQuickReply(replyToken, "คู่มือการเพิ่มรายการ", menuFlex(), mainQuickReply());
           return;
         }
 

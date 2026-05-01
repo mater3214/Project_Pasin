@@ -85,7 +85,7 @@ export default function AuthPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success("เข้าสู่ระบบสำเร็จ!");
-        router.push("/todolist#list");
+        window.location.href = "/todolist#list";
       } else {
         toast.error(data.error || "เข้าสู่ระบบไม่สำเร็จ");
       }
