@@ -170,36 +170,123 @@ export function credentialsFlex(displayName: string, webUserId: string, password
 }
 
 export function menuFlex() {
-  const row = (emoji: string, cmd: string, desc: string) => ({
-    type: "box" as const, layout: "horizontal" as const, margin: "sm" as const,
-    contents: [
-      { type: "text" as const, text: `${emoji} ${cmd}`, size: "sm" as const, weight: "bold" as const, flex: 5, color: "#333333" },
-      { type: "text" as const, text: desc, size: "xs" as const, flex: 5, color: "#999999", align: "end" as const },
-    ],
-  });
-
   return {
     type: "bubble",
+    size: "mega",
     body: {
       type: "box",
       layout: "vertical",
       contents: [
-        { type: "text", text: "คำสั่ง Todolish", weight: "bold", size: "lg", color: "#6366f1" },
-        { type: "separator", margin: "md" },
-        row("เพิ่ม", "เพิ่ม ชื่อ", "+25~1000pts"),
-        row("รายการ", "รายการ", "ดูทั้งหมด"),
-        row("เช็ค", "เช็ค เลข", "ทำเสร็จ"),
-        row("ลบ", "ลบ เลข", "ลบรายการ"),
-        row("คะแนน", "คะแนน", "ดูคะแนน"),
-        row("บัญชี", "บัญชี", "ดู User ID"),
-        { type: "separator", margin: "md" },
-        { type: "text", text: "เพิ่มแบบละเอียด:", size: "xs", color: "#666", margin: "md", weight: "bold" },
-        { type: "text", text: "เพิ่ม ชื่อ | สำคัญ | รายละเอียด | ที่ | วัน/เดือน/ปี เวลา", size: "xs", color: "#6366f1", margin: "sm", wrap: true },
-        { type: "text", text: "เช่น: เพิ่ม ส่งงาน | สูง | รายงาน | ห้อง301 | 15/06/2026 14:30", size: "xs", color: "#999", margin: "sm", wrap: true },
+        {
+          type: "text",
+          text: "📚 คู่มือการใช้งาน Todolish",
+          weight: "bold",
+          size: "xl",
+          color: "#6366f1",
+          wrap: true
+        },
+        {
+          type: "separator",
+          margin: "md"
+        },
+        {
+          type: "text",
+          text: "✨ วิธีเพิ่มรายการ (แบบง่าย)",
+          weight: "bold",
+          size: "sm",
+          color: "#16a34a",
+          margin: "md"
+        },
+        {
+          type: "text",
+          text: "พิมพ์ 'เพิ่ม' ตามด้วยชื่อ ระบบจะให้กดเลือกความสำคัญได้เลย",
+          size: "xs",
+          color: "#666666",
+          wrap: true,
+          margin: "sm"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          margin: "sm",
+          backgroundColor: "#f0fdf4",
+          cornerRadius: "md",
+          paddingAll: "8px",
+          contents: [
+            { type: "text", text: "ตัวอย่าง: เพิ่ม ซื้อของเข้าบ้าน", size: "xs", color: "#15803d", weight: "bold" }
+          ]
+        },
+        {
+          type: "text",
+          text: "🚀 วิธีเพิ่มรายการ (แบบละเอียด)",
+          weight: "bold",
+          size: "sm",
+          color: "#f59e0b",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: "เพิ่ม ชื่อ | ความสำคัญ | รายละเอียด | สถานที่ | วันเวลา (วว/ดด/ปปปป)",
+          size: "xs",
+          color: "#666666",
+          wrap: true,
+          margin: "sm"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          margin: "sm",
+          backgroundColor: "#fffbeb",
+          cornerRadius: "md",
+          paddingAll: "8px",
+          contents: [
+            { type: "text", text: "ตัวอย่าง:", size: "xs", color: "#b45309", weight: "bold" },
+            { type: "text", text: "เพิ่ม ส่งงาน | สำคัญ | ไฟล์ PDF | ไลน์ | 15/06/2026 14:30", size: "xs", color: "#b45309", wrap: true }
+          ]
+        },
+        {
+          type: "text",
+          text: "⚡ คำสั่งอื่นๆ",
+          weight: "bold",
+          size: "sm",
+          color: "#ec4899",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          margin: "sm",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box", layout: "horizontal", contents: [
+                { type: "text", text: "📋 รายการ", size: "sm", weight: "bold", flex: 3 },
+                { type: "text", text: "ดูรายการที่ต้องทำ", size: "xs", color: "#666666", flex: 6, wrap: true }
+              ]
+            },
+            {
+              type: "box", layout: "horizontal", contents: [
+                { type: "text", text: "✅ เช็ค", size: "sm", weight: "bold", flex: 3 },
+                { type: "text", text: "ติ๊กทำเสร็จ รับคะแนน!", size: "xs", color: "#666666", flex: 6, wrap: true }
+              ]
+            },
+            {
+              type: "box", layout: "horizontal", contents: [
+                { type: "text", text: "🗑️ ลบ", size: "sm", weight: "bold", flex: 3 },
+                { type: "text", text: "ลบรายการที่ไม่ต้องการ", size: "xs", color: "#666666", flex: 6, wrap: true }
+              ]
+            },
+            {
+              type: "box", layout: "horizontal", contents: [
+                { type: "text", text: "⭐ คะแนน", size: "sm", weight: "bold", flex: 3 },
+                { type: "text", text: "ดูคะแนนสะสมทั้งหมด", size: "xs", color: "#666666", flex: 6, wrap: true }
+              ]
+            }
+          ]
+        }
       ],
-      paddingAll: "16px",
-      spacing: "sm",
-    },
+      paddingAll: "20px"
+    }
   };
 }
 

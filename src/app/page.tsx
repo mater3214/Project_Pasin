@@ -41,18 +41,14 @@ export default function Home() {
       .catch(() => setStats({ totalCompleted: 0 }));
   }, []);
 
-  // Show loading while checking auth
-  if (loading) {
-    return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/auth");
+    }
+  }, [loading, user, router]);
 
-  // Not logged in → redirect to auth
-  if (!user) {
-    router.push("/auth");
+  // Show loading while checking auth OR if redirecting
+  if (loading || !user) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
