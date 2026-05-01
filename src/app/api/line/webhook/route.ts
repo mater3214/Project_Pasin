@@ -9,14 +9,11 @@ import {
   updateTodo,
   getDashboardStats,
   getAdmin,
-  registerWebUser,
-  linkLineAccount,
 } from "@/lib/supabase";
 import {
   getUserProfile,
   replyMessage,
   replyFlexMessage,
-  pushFlexMessage,
   parseCommand,
   buildWelcomeFlex,
   buildCredentialsFlex,
@@ -24,6 +21,7 @@ import {
   buildNeedRegisterFlex,
 } from "@/lib/line";
 import { Todo } from "@/types";
+import { createHash, randomBytes } from "crypto";
 
 type WebhookEvent = {
   type: string;
@@ -34,13 +32,29 @@ type WebhookEvent = {
 
 const channelSecret = process.env.LINE_CHANNEL_SECRET!;
 
+function hashPassword(password: string): string {
+  return createHash("sha256").update(password).digest("hex");
+}
+
+function generateWebUserId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "TDL-";
+  for (let i = 0; i < 8; i++) {
+    id += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return id;
+}
+
+function generatePassword(): string {
+  return randomBytes(4).toString("hex");
+}
+
 async function handleEvent(event: WebhookEvent) {
   // ─── Follow Event: Welcome + prompt registration ───
   if (event.type === "follow") {
     const profile = await getUserProfile(event.source.userId);
     if (!profile) return;
 
-    // Create a basic user record (without web credentials)
     let user = await getUserByLineId(event.source.userId);
     if (!user) {
       user = await createUser({
@@ -51,12 +65,14 @@ async function handleEvent(event: WebhookEvent) {
       });
     }
 
-    // Send Flex welcome message prompting registration
-    await pushFlexMessage(
-      event.source.userId,
-      "ยินดีต้อนรับสู่ Todolish!",
-      buildWelcomeFlex(profile.displayName)
-    );
+    // Send Flex welcome — prompt to register
+    if (event.replyToken) {
+      await replyFlexMessage(
+        event.replyToken,
+        "ยินดีต้อนรับสู่ Todolish!",
+        buildWelcomeFlex(profile.displayName)
+      );
+    }
     return;
   }
 
@@ -110,28 +126,39 @@ async function handleEvent(event: WebhookEvent) {
       return;
     }
 
-    const result = await registerWebUser(name, phone);
-    if (result) {
-      // Link LINE account to new web user
-      await linkLineAccount(result.user.id, lineUserId);
-      // Remove old orphan record if different
-      if (dbUser.id !== result.user.id) {
-        await getAdmin()
-          .from("users")
-          .delete()
-          .eq("id", dbUser.id)
-          .neq("id", result.user.id);
-      }
+    // ─── UPDATE the existing user record (don't create new) ───
+    const webUserId = generateWebUserId();
+    const password = generatePassword();
+    const passwordHash = hashPassword(password);
 
-      // Send beautiful Flex Message with credentials
-      await replyFlexMessage(
-        replyToken,
-        "สมัครสำเร็จ!",
-        buildCredentialsFlex(name, result.webUserId, result.password)
-      );
-    } else {
+    const { error } = await getAdmin()
+      .from("users")
+      .update({
+        display_name: name,
+        phone,
+        web_user_id: webUserId,
+        password_hash: passwordHash,
+      })
+      .eq("id", dbUser.id);
+
+    if (error) {
+      console.error("LINE registration error:", error);
       await replyMessage(replyToken, "สมัครไม่สำเร็จ กรุณาลองใหม่");
+      return;
     }
+
+    // Send credentials + then menu
+    await replyFlexMessage(
+      replyToken,
+      "สมัครสำเร็จ!",
+      {
+        type: "carousel",
+        contents: [
+          buildCredentialsFlex(name, webUserId, password),
+          buildMenuFlex(),
+        ],
+      }
+    );
     return;
   }
 
@@ -165,10 +192,10 @@ async function handleEvent(event: WebhookEvent) {
       if (todo) {
         await replyMessage(
           replyToken,
-          `✅ เพิ่มรายการ "${title}" เรียบร้อย\nPriority: ${"⭐".repeat(priority)} | +${points} pts`
+          `✅ เพิ่ม "${title}" เรียบร้อย\n${"⭐".repeat(priority)} | +${points} pts`
         );
       } else {
-        await replyMessage(replyToken, "❌ เพิ่มรายการไม่สำเร็จ กรุณาลองใหม่");
+        await replyMessage(replyToken, "❌ เพิ่มไม่สำเร็จ กรุณาลองใหม่");
       }
       break;
     }
@@ -188,9 +215,9 @@ async function handleEvent(event: WebhookEvent) {
       const target = todos[idx - 1];
       const success = await deleteTodo(target.id);
       if (success) {
-        await replyMessage(replyToken, `🗑️ ลบรายการ "${target.title}" เรียบร้อย`);
+        await replyMessage(replyToken, `🗑️ ลบ "${target.title}" เรียบร้อย`);
       } else {
-        await replyMessage(replyToken, "❌ ลบรายการไม่สำเร็จ");
+        await replyMessage(replyToken, "❌ ลบไม่สำเร็จ");
       }
       break;
     }
@@ -199,13 +226,13 @@ async function handleEvent(event: WebhookEvent) {
     case "list": {
       const todos = await getTodosByUser(dbUser.id);
       if (todos.length === 0) {
-        await replyMessage(replyToken, "📋 คุณยังไม่มีรายการ\nพิมพ์ \"เพิ่ม [ชื่อ]\" เพื่อสร้างรายการใหม่");
+        await replyMessage(replyToken, "📋 ยังไม่มีรายการ\nพิมพ์ \"เพิ่ม [ชื่อ]\" เพื่อเริ่มต้น");
         return;
       }
       const list = todos
         .map((t: Todo, i: number) => {
           const status = t.status === "completed" ? "✅" : "⬜";
-          const pri = t.priority === 3 ? "🔴" : t.priority === 2 ? "🟡" : "🟢";
+          const pri = t.priority === 3 ? "🔥" : t.priority === 2 ? "⚡" : "💎";
           return `${i + 1}. ${status} ${t.title} ${pri} +${t.points_reward}pts`;
         })
         .join("\n");
@@ -227,13 +254,14 @@ async function handleEvent(event: WebhookEvent) {
       }
       const target = todos[idx - 1];
       if (target.status === "completed") {
-        await replyMessage(replyToken, `✅ "${target.title}" เสร็จสิ้นไปแล้ว`);
+        await replyMessage(replyToken, `✅ "${target.title}" เสร็จแล้ว`);
         return;
       }
       await updateTodo(target.id, { status: "completed" });
+      const newPoints = dbUser.total_points + target.points_reward;
       await getAdmin()
         .from("users")
-        .update({ total_points: dbUser.total_points + target.points_reward })
+        .update({ total_points: newPoints })
         .eq("id", dbUser.id);
       await getAdmin().from("todo_logs").insert({
         todo_id: target.id,
@@ -242,7 +270,7 @@ async function handleEvent(event: WebhookEvent) {
       });
       await replyMessage(
         replyToken,
-        `🎉 ทำ "${target.title}" เสร็จแล้ว!\n+${target.points_reward} คะแนน\n\n⭐ คะแนนรวม: ${dbUser.total_points + target.points_reward} pts`
+        `🎉 ทำ "${target.title}" เสร็จ!\n+${target.points_reward} pts\n⭐ รวม: ${newPoints} pts`
       );
       break;
     }
@@ -252,7 +280,7 @@ async function handleEvent(event: WebhookEvent) {
       const stats = await getDashboardStats(dbUser.id);
       await replyMessage(
         replyToken,
-        `⭐ คะแนนรวม: ${stats.totalPoints} pts\n✅ เสร็จแล้ว: ${stats.completed}/${stats.total} รายการ`
+        `⭐ คะแนนรวม: ${stats.totalPoints} pts\n✅ เสร็จ: ${stats.completed}/${stats.total} รายการ`
       );
       break;
     }
@@ -274,7 +302,7 @@ async function handleEvent(event: WebhookEvent) {
     }
 
     default: {
-      await replyFlexMessage(replyToken, "กรุณาสมัครหรือดูวิธีใช้", buildMenuFlex());
+      await replyFlexMessage(replyToken, "คำสั่ง Todolish", buildMenuFlex());
     }
   }
 }
