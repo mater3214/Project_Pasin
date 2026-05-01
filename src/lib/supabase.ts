@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { Todo, User, TodoLog, RankUser, DashboardStats } from "@/types";
+import { Todo, User, TodoLog, RankUser, DashboardStats, UserProfile } from "@/types";
+import { createHash, randomBytes } from "crypto";
 
 function getClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -190,3 +191,153 @@ export async function getUpcomingNotifications(): Promise<Todo[]> {
 export async function markNotified(todoId: string): Promise<void> {
   await getAdmin().from("todos").update({ is_notified: true }).eq("id", todoId);
 }
+
+// ─── Auth helpers ───────────────────────────────────────────
+
+function hashPassword(password: string): string {
+  return createHash("sha256").update(password).digest("hex");
+}
+
+function generateWebUserId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "TDL-";
+  for (let i = 0; i < 8; i++) {
+    id += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return id;
+}
+
+function generatePassword(): string {
+  return randomBytes(4).toString("hex"); // 8 char hex
+}
+
+export async function registerWebUser(
+  displayName: string,
+  phone: string
+): Promise<{ user: User; webUserId: string; password: string } | null> {
+  const webUserId = generateWebUserId();
+  const password = generatePassword();
+  const passwordHash = hashPassword(password);
+
+  const { data, error } = await getAdmin()
+    .from("users")
+    .insert({
+      display_name: displayName,
+      phone,
+      web_user_id: webUserId,
+      password_hash: passwordHash,
+      line_user_id: `web_${webUserId}`, // placeholder until LINE is linked
+      total_points: 0,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("registerWebUser error:", error);
+    return null;
+  }
+  return { user: data as User, webUserId, password };
+}
+
+export async function loginWebUser(
+  webUserId: string,
+  password: string
+): Promise<User | null> {
+  const passwordHash = hashPassword(password);
+  const { data, error } = await getAdmin()
+    .from("users")
+    .select("*")
+    .eq("web_user_id", webUserId)
+    .eq("password_hash", passwordHash)
+    .single();
+
+  if (error || !data) return null;
+  return data as User;
+}
+
+export async function getUserById(userId: string): Promise<UserProfile | null> {
+  const { data, error } = await getAdmin()
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  if (error || !data) return null;
+  return data as UserProfile;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  updates: { display_name?: string; phone?: string; email?: string; bio?: string; birthday?: string }
+): Promise<UserProfile | null> {
+  const { data, error } = await getAdmin()
+    .from("users")
+    .update(updates)
+    .eq("id", userId)
+    .select()
+    .single();
+  if (error) {
+    console.error("updateUserProfile error:", error);
+    return null;
+  }
+  return data as UserProfile;
+}
+
+export async function linkLineAccount(
+  userId: string,
+  lineUserId: string
+): Promise<boolean> {
+  const { error } = await getAdmin()
+    .from("users")
+    .update({ line_user_id: lineUserId })
+    .eq("id", userId);
+  if (error) {
+    console.error("linkLineAccount error:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function findUserByPhone(
+  phone: string
+): Promise<{ id: string; display_name: string; web_user_id?: string } | null> {
+  const { data, error } = await getAdmin()
+    .from("users")
+    .select("id, display_name, web_user_id")
+    .eq("phone", phone)
+    .single();
+  if (error || !data) return null;
+  return data;
+}
+
+export async function resetUserCredentials(
+  phone: string,
+  newWebUserId: string,
+  newPassword: string
+): Promise<boolean> {
+  const user = await findUserByPhone(phone);
+  if (!user) return false;
+
+  const passwordHash = hashPassword(newPassword);
+
+  // Check if new web_user_id is already taken by another user
+  if (newWebUserId !== user.web_user_id) {
+    const { data: existing } = await getAdmin()
+      .from("users")
+      .select("id")
+      .eq("web_user_id", newWebUserId)
+      .single();
+    if (existing && existing.id !== user.id) return false;
+  }
+
+  const { error } = await getAdmin()
+    .from("users")
+    .update({ web_user_id: newWebUserId, password_hash: passwordHash })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("resetUserCredentials error:", error);
+    return false;
+  }
+  return true;
+}
+

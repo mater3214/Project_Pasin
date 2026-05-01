@@ -147,6 +147,48 @@ export async function PATCH(req: NextRequest) {
     if (priority !== undefined) updates.priority = priority;
     if (due_date !== undefined) updates.due_date = due_date;
 
+    // If status is changing, handle points
+    if (status !== undefined) {
+      // Get current todo to check old status and get points_reward
+      const { data: currentTodo } = await getAdmin()
+        .from("todos")
+        .select("status, points_reward, user_id")
+        .eq("id", id)
+        .single();
+
+      if (currentTodo && currentTodo.status !== status) {
+        // Get user's current points
+        const { data: userData } = await getAdmin()
+          .from("users")
+          .select("total_points")
+          .eq("id", currentTodo.user_id)
+          .single();
+
+        if (userData) {
+          let newPoints = userData.total_points;
+          if (status === "completed") {
+            newPoints += currentTodo.points_reward;
+          } else if (status === "pending" && currentTodo.status === "completed") {
+            newPoints = Math.max(0, newPoints - currentTodo.points_reward);
+          }
+
+          await getAdmin()
+            .from("users")
+            .update({ total_points: newPoints })
+            .eq("id", currentTodo.user_id);
+
+          // Log the action
+          if (status === "completed") {
+            await getAdmin().from("todo_logs").insert({
+              todo_id: id,
+              user_id: currentTodo.user_id,
+              action: `completed (+${currentTodo.points_reward}pts)`,
+            });
+          }
+        }
+      }
+    }
+
     const todo = await updateTodo(id, updates);
     return NextResponse.json({ todo });
   } catch (error: any) {

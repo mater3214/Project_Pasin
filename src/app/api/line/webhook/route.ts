@@ -9,6 +9,8 @@ import {
   updateTodo,
   getDashboardStats,
   getAdmin,
+  registerWebUser,
+  linkLineAccount,
 } from "@/lib/supabase";
 import { getUserProfile, replyMessage, pushMessage, parseCommand } from "@/lib/line";
 import { Todo } from "@/types";
@@ -190,8 +192,53 @@ async function handleEvent(event: WebhookEvent) {
           `รายการ - ดูรายการทั้งหมด\n` +
           `เช็ค [เลข] - ทำเครื่องหมายเสร็จ\n` +
           `คะแนน - ดูคะแนนรวม\n` +
+          `สมัคร [ชื่อ] [เบอร์] - สมัครบัญชีเว็บ\n` +
+          `บัญชี - ดู User ID ของคุณ\n` +
           `ช่วยเหลือ - แสดงวิธีใช้`
       );
+      break;
+    }
+
+    case "สมัคร":
+    case "register": {
+      const parts = args.split(/\s+/);
+      const name = parts[0];
+      const phone = parts[1];
+      if (!name || !phone) {
+        await reply("ใช้: สมัคร [ชื่อ] [เบอร์โทร]");
+        return;
+      }
+      // Check if this LINE user already has an account
+      if (dbUser.web_user_id) {
+        await reply(`คุณมีบัญชีแล้ว\nUser ID: ${dbUser.web_user_id}`);
+        return;
+      }
+      const result = await registerWebUser(name, phone);
+      if (result) {
+        // Link LINE account to the new web user
+        await linkLineAccount(result.user.id, userId);
+        // Also update current dbUser's line_user_id if needed
+        await getAdmin()
+          .from("users")
+          .delete()
+          .eq("id", dbUser.id)
+          .neq("id", result.user.id);
+        await reply(
+          `สมัครสำเร็จ!\n\nUser ID: ${result.webUserId}\nPassword: ${result.password}\n\nเก็บข้อมูลนี้ไว้สำหรับเข้าสู่ระบบบนเว็บ`
+        );
+      } else {
+        await reply("สมัครไม่สำเร็จ กรุณาลองใหม่");
+      }
+      break;
+    }
+
+    case "บัญชี":
+    case "account": {
+      if (dbUser.web_user_id) {
+        await reply(`บัญชีของคุณ:\nUser ID: ${dbUser.web_user_id}\nใช้สำหรับเข้าสู่ระบบบนเว็บ`);
+      } else {
+        await reply('คุณยังไม่มีบัญชีเว็บ พิมพ์ "สมัคร [ชื่อ] [เบอร์]" เพื่อสมัคร');
+      }
       break;
     }
 

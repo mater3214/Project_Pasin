@@ -1,9 +1,14 @@
 export interface User {
   id: string;
-  line_user_id: string;
+  line_user_id?: string;
   display_name: string;
   picture_url?: string;
   total_points: number;
+  phone?: string;
+  email?: string;
+  bio?: string;
+  birthday?: string;
+  web_user_id?: string;
   created_at: string;
 }
 
@@ -44,4 +49,18 @@ export interface DashboardStats {
   completed: number;
   pending: number;
   totalPoints: number;
+}
+
+export interface UserProfile {
+  id: string;
+  display_name: string;
+  phone?: string;
+  email?: string;
+  bio?: string;
+  birthday?: string;
+  picture_url?: string;
+  total_points: number;
+  web_user_id?: string;
+  line_user_id?: string;
+  created_at: string;
 }
