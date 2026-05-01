@@ -167,16 +167,15 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
 
 export async function getUpcomingNotifications(): Promise<Todo[]> {
   const now = new Date();
-  const fifteenMinutesLater = new Date(now.getTime() + 15 * 60000);
-  const tenMinutesLater = new Date(now.getTime() + 10 * 60000);
+  const twentyFourHoursLater = new Date(now.getTime() + 24 * 60 * 60000);
 
   const { data, error } = await getAdmin()
     .from("todos")
     .select("*, users!inner(line_user_id)")
     .eq("status", "pending")
     .eq("is_notified", false)
-    .gte("due_date", tenMinutesLater.toISOString())
-    .lte("due_date", fifteenMinutesLater.toISOString());
+    .gte("due_date", now.toISOString())
+    .lte("due_date", twentyFourHoursLater.toISOString());
 
   if (error) {
     console.error("getUpcomingNotifications error:", error);

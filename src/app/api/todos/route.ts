@@ -9,15 +9,46 @@ import {
 } from "@/lib/supabase";
 import { TodoPriority } from "@/types";
 
+// Helper: resolve "demo-user" to a real UUID from the database
+async function resolveUserId(rawId: string | null): Promise<string | null> {
+  if (!rawId) return null;
+  if (rawId === "demo-user") {
+    const admin = getAdmin();
+    // Try to find existing demo user
+    const { data: existing } = await admin
+      .from("users")
+      .select("id")
+      .eq("line_user_id", "demo-user")
+      .single();
+    if (existing) return existing.id;
+    // Create demo user if not exists
+    const { data: created, error } = await admin
+      .from("users")
+      .insert({
+        line_user_id: "demo-user",
+        display_name: "Demo User",
+        total_points: 0,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      console.error("Failed to create demo user:", error);
+      return null;
+    }
+    return created?.id ?? null;
+  }
+  return rawId;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const userId = searchParams.get("userId");
+  const rawUserId = searchParams.get("userId");
   const stats = searchParams.get("stats");
 
   try {
     if (stats === "true") {
       // Global stats for home page
-      if (!userId) {
+      if (!rawUserId) {
         const { data, error } = await getAdmin()
           .from("todos")
           .select("status");
@@ -27,10 +58,18 @@ export async function GET(req: NextRequest) {
         ).length;
         return NextResponse.json({ totalCompleted: completed });
       }
+      const userId = await resolveUserId(rawUserId);
+      if (!userId) {
+        return NextResponse.json(
+          { error: "Could not resolve user" },
+          { status: 400 }
+        );
+      }
       const dashboardStats = await getDashboardStats(userId);
       return NextResponse.json(dashboardStats);
     }
 
+    const userId = await resolveUserId(rawUserId);
     if (!userId) {
       return NextResponse.json(
         { error: "userId is required" },
@@ -61,8 +100,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const resolvedUserId = await resolveUserId(user_id);
+    if (!resolvedUserId) {
+      return NextResponse.json(
+        { error: "Could not resolve user" },
+        { status: 400 }
+      );
+    }
+
     const todo = await createTodo({
-      user_id,
+      user_id: resolvedUserId,
       title,
       description,
       priority: (priority as TodoPriority) ?? 1,
