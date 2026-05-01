@@ -91,6 +91,8 @@ export async function updateTodo(
 }
 
 export async function deleteTodo(id: string): Promise<boolean> {
+  // Delete related logs first (FK constraint)
+  await getAdmin().from("todo_logs").delete().eq("todo_id", id);
   const { error } = await getAdmin().from("todos").delete().eq("id", id);
   if (error) {
     console.error("deleteTodo error:", error);
