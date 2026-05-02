@@ -49,9 +49,9 @@ function parseDateInput(input: string): string | undefined {
     const [, dd, mm, yyyy, hh, min] = match;
     const hour = parseInt(hh || "23", 10);
     const minute = parseInt(min || "59", 10);
-    // สร้างเป็น Date object โดยใช้ Local Timezone ของ Browser
-    const date = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), hour, minute);
-    return date.toISOString();
+    const hourStr = hour.toString().padStart(2, "0");
+    const minStr = minute.toString().padStart(2, "0");
+    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T${hourStr}:${minStr}:00`;
   }
   // Try ISO/native format
   const d = new Date(cleaned);

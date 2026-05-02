@@ -189,7 +189,7 @@ export default function TodoList({ todos, loading, onToggle, onDelete }: TodoLis
                         {todo.due_date && (
                           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <Calendar className="h-3 w-3" />
-                            {new Date(todo.due_date).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" })}
+                            {new Date(todo.due_date + (todo.due_date.endsWith('Z') ? '' : 'Z')).toLocaleString("th-TH", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" })}
                           </span>
                         )}
                         <span className="flex items-center gap-0.5 text-[11px] text-chart-3">

@@ -81,17 +81,9 @@ function parseDateThai(text: string): string | undefined {
     const [, dd, mm, yyyy, hh, min] = match;
     const h = parseInt(hh || "23", 10);
     const m = parseInt(min || "59", 10);
-    // Create date in Thai timezone (UTC+7)
-    const utcH = h - 7;
-    const date = new Date(Date.UTC(
-      parseInt(yyyy),
-      parseInt(mm) - 1,
-      parseInt(dd),
-      utcH < 0 ? utcH + 24 : utcH,
-      m
-    ));
-    if (utcH < 0) date.setUTCDate(date.getUTCDate() - 1);
-    return date.toISOString();
+    const hourStr = h.toString().padStart(2, "0");
+    const minStr = m.toString().padStart(2, "0");
+    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T${hourStr}:${minStr}:00`;
   }
   const d = new Date(cleaned);
   if (!isNaN(d.getTime())) return d.toISOString();
