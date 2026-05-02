@@ -63,16 +63,14 @@ export default function TodoList({ todos, loading, onToggle, onDelete }: TodoLis
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                  filter === f.key
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${filter === f.key
                     ? "bg-white text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {f.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                  filter === f.key ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
-                }`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${filter === f.key ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
+                  }`}>
                   {f.count}
                 </span>
               </button>
@@ -140,16 +138,14 @@ export default function TodoList({ todos, loading, onToggle, onDelete }: TodoLis
                   transition={{ duration: 0.2, delay: idx * 0.03 }}
                 >
                   <div
-                    className={`group relative flex items-start gap-3 rounded-xl border p-4 transition-all duration-200 ${
-                      isCompleted
+                    className={`group relative flex items-start gap-3 rounded-xl border p-4 transition-all duration-200 ${isCompleted
                         ? "border-border/30 bg-secondary/20 opacity-60 hover:opacity-80"
                         : "border-border/40 bg-white/80 shadow-sm hover:shadow-md hover:border-primary/20 backdrop-blur-sm"
-                    }`}
+                      }`}
                   >
                     {/* Priority indicator */}
-                    <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${
-                      todo.priority === 3 ? "bg-red-400" : todo.priority === 2 ? "bg-amber-400" : "bg-emerald-400"
-                    }`} />
+                    <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${todo.priority === 3 ? "bg-red-400" : todo.priority === 2 ? "bg-amber-400" : "bg-emerald-400"
+                      }`} />
 
                     {/* Check button */}
                     <button
@@ -173,9 +169,8 @@ export default function TodoList({ todos, loading, onToggle, onDelete }: TodoLis
                     {/* Content */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className={`text-sm font-medium transition-all ${
-                          isCompleted ? "line-through text-muted-foreground" : ""
-                        }`}>
+                        <p className={`text-sm font-medium transition-all ${isCompleted ? "line-through text-muted-foreground" : ""
+                          }`}>
                           {todo.title}
                         </p>
                         <span className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${p.bg}`}>
