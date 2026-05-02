@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       priority: (priority as TodoPriority) ?? 1,
-      due_date: due_date ? new Date(due_date).toISOString() : undefined,
+      due_date: due_date || undefined,
       points_reward: Math.max(1, points_reward ?? 25),
     };
     if (location) insertData.location = location;
