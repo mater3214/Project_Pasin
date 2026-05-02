@@ -1,4 +1,5 @@
 import { messagingApi } from "@line/bot-sdk";
+import { getRankInfo } from "./rank-utils";
 
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN!;
 
@@ -218,6 +219,56 @@ export function todoListCarouselFlex(items: { t: any, i: number }[]) {
   });
 
   return { type: "carousel", contents: bubbles };
+}
+
+export function pointsFlex(displayName: string, totalPoints: number) {
+  const rank = getRankInfo(totalPoints);
+  return {
+    type: "bubble",
+    size: "mega",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: `คุณ ${displayName}`, weight: "bold", size: "lg" },
+        { type: "text", text: "คะแนนสะสมของคุณ", size: "sm", color: "#aaaaaa", margin: "md" },
+        { type: "text", text: `${totalPoints} pts`, weight: "bold", size: "3xl", color: rank.color, margin: "sm" },
+        { type: "box", layout: "horizontal", margin: "xl", contents: [
+          { type: "text", text: "ระดับปัจจุบัน:", size: "sm", color: "#666666", flex: 1 },
+          { type: "text", text: `${rank.icon} ${rank.labelTh} (${rank.tier})`, weight: "bold", size: "sm", color: rank.color, flex: 2 }
+        ]},
+        { type: "box", layout: "horizontal", margin: "md", contents: [
+          { type: "text", text: "สถานะ:", size: "sm", color: "#666666", flex: 1 },
+          { type: "text", text: rank.maxPoints === -1 ? "ขั้นสูงสุดแล้ว!" : `อีก ${rank.maxPoints - totalPoints + 1} pts จะขึ้นแรงค์ใหม่`, size: "sm", weight: "bold", flex: 2 }
+        ]}
+      ]
+    }
+  };
+}
+
+export function checkSuccessFlex(title: string, earnedPoints: number, newTotal: number, remainingCount: number) {
+  return {
+    type: "bubble",
+    size: "mega",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: "🎉 ทำรายการสำเร็จ!", weight: "bold", size: "lg", color: "#10b981" },
+        { type: "text", text: title, size: "md", margin: "md", wrap: true },
+        { type: "box", layout: "horizontal", margin: "lg", contents: [
+          { type: "text", text: "คะแนนที่ได้:", size: "sm", color: "#666666", flex: 1 },
+          { type: "text", text: `+${earnedPoints} pts`, weight: "bold", size: "sm", color: "#eab308", flex: 1 }
+        ]},
+        { type: "box", layout: "horizontal", margin: "sm", contents: [
+          { type: "text", text: "คะแนนรวม:", size: "sm", color: "#666666", flex: 1 },
+          { type: "text", text: `${newTotal} pts`, weight: "bold", size: "sm", color: "#3b82f6", flex: 1 }
+        ]},
+        { type: "separator", margin: "lg" },
+        { type: "text", text: remainingCount > 0 ? `เหลืออีก ${remainingCount} รายการ สู้ๆ! ✌️` : "ไม่มีรายการค้างแล้ว เก่งมาก! 🥳", size: "sm", color: "#aaaaaa", margin: "lg", align: "center", wrap: true }
+      ]
+    }
+  };
 }
 
 export function checkQuickReply(count: number) {

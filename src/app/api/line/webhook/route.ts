@@ -34,6 +34,8 @@ import {
   priorityOptionsFlex,
   templateOptionsCarousel,
   todoListCarouselFlex,
+  pointsFlex,
+  checkSuccessFlex,
 } from "@/lib/line";
 import { Todo } from "@/types";
 import { createHash, randomBytes } from "crypto";
@@ -313,13 +315,14 @@ async function handleEvent(event: WebhookEvent) {
 
           if (todo) {
              const finalLabel = Object.values(PRIORITY_MAP).find(p => p.priority === todo.priority)?.label || "ต่ำ (25pts)";
-             // Format date display simply back to Thai original format if existed
              const displayDate = tempData.due_date ? tempData.due_date.replace("T", " ") : undefined;
-             await replyFlexWithQuickReply(replyToken, 
-                `เพิ่ม "${todo.title}" สำเร็จ`,
-                addSuccessFlex(todo.title, finalLabel, finalPoints, todo.description, todo.location, displayDate),
-                mainQuickReply()
-             );
+             const todosList = await getTodosByUser(dbUser.id);
+             const pendingWithIndex = todosList.map((t: Todo, i: number) => ({ t, i: i + 1 })).filter(({ t }) => t.status !== "completed");
+
+             await safeReply(replyToken, [
+                { type: "flex", altText: `เพิ่ม "${todo.title}" สำเร็จ`, contents: addSuccessFlex(todo.title, finalLabel, finalPoints, todo.description, todo.location, displayDate) },
+                { type: "flex", altText: "รายการของคุณ", contents: todoListCarouselFlex(pendingWithIndex), quickReply: mainQuickReply() }
+             ]);
           } else {
              await replyTextWithQuickReply(replyToken, "เพิ่มไม่สำเร็จ กรุณาลองใหม่", mainQuickReply());
           }
@@ -351,11 +354,13 @@ async function handleEvent(event: WebhookEvent) {
         });
         if (todo) {
             const finalLabel = Object.values(PRIORITY_MAP).find(p => p.priority === todo.priority)?.label || "ต่ำ (5pts)";
-            await replyFlexWithQuickReply(replyToken, 
-               `เพิ่ม "${todo.title}" สำเร็จ`,
-               addSuccessFlex(todo.title, finalLabel, todo.points_reward, todo.description, todo.location, undefined),
-               mainQuickReply()
-            );
+            const todosList = await getTodosByUser(dbUser.id);
+            const pendingWithIndex = todosList.map((t: Todo, i: number) => ({ t, i: i + 1 })).filter(({ t }) => t.status !== "completed");
+            
+            await safeReply(replyToken, [
+               { type: "flex", altText: `เพิ่ม "${todo.title}" สำเร็จ`, contents: addSuccessFlex(todo.title, finalLabel, todo.points_reward, todo.description, todo.location, undefined) },
+               { type: "flex", altText: "รายการของคุณ", contents: todoListCarouselFlex(pendingWithIndex), quickReply: mainQuickReply() }
+            ]);
         } else {
             await replyTextWithQuickReply(replyToken, "เพิ่มไม่สำเร็จ กรุณาลองใหม่", mainQuickReply());
         }
@@ -502,8 +507,10 @@ async function handleEvent(event: WebhookEvent) {
           todo_id: target.id, user_id: dbUser.id,
           action: `completed (+${target.points_reward}pts)`,
         });
-        await replyTextWithQuickReply(replyToken,
-          `ทำ "${target.title}" เสร็จ!\n+${target.points_reward} pts | รวม: ${newPoints} pts`,
+        const pendingCount = todos.filter((t: Todo) => t.status !== "completed" && t.id !== target.id).length;
+        await replyFlexWithQuickReply(replyToken,
+          `ทำ "${target.title}" เสร็จ!`,
+          checkSuccessFlex(target.title, target.points_reward, newPoints, pendingCount),
           mainQuickReply()
         );
         break;
@@ -512,11 +519,7 @@ async function handleEvent(event: WebhookEvent) {
       case "คะแนน":
       case "point":
       case "points": {
-        const stats = await getDashboardStats(dbUser.id);
-        await replyTextWithQuickReply(replyToken,
-          `คะแนนรวม: ${stats.totalPoints} pts\nเสร็จ: ${stats.completed}/${stats.total} รายการ`,
-          mainQuickReply()
-        );
+        await replyFlexWithQuickReply(replyToken, "คะแนนสะสมของคุณ", pointsFlex(dbUser.display_name, dbUser.total_points), mainQuickReply());
         break;
       }
 
