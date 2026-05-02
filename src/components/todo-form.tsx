@@ -34,11 +34,11 @@ interface TodoFormProps {
 }
 
 const PRIORITY_CONFIG: Record<TodoPriority, { label: string; icon: string; pts: number; color: string; bg: string; ring: string; text: string }> = {
-  1: { label: "ต่ำ", icon: "💎", pts: 25, color: "from-emerald-400 to-teal-500", bg: "bg-emerald-50", ring: "ring-emerald-300", text: "text-emerald-600" },
-  2: { label: "กลาง", icon: "⚡", pts: 50, color: "from-amber-400 to-orange-500", bg: "bg-amber-50", ring: "ring-amber-300", text: "text-amber-600" },
-  3: { label: "สูง", icon: "🔥", pts: 100, color: "from-rose-400 to-red-500", bg: "bg-rose-50", ring: "ring-rose-300", text: "text-rose-600" },
-  4: { label: "สูงมาก", icon: "💥", pts: 200, color: "from-purple-400 to-violet-500", bg: "bg-purple-50", ring: "ring-purple-300", text: "text-purple-600" },
-  5: { label: "สำคัญ", icon: "⭐", pts: 1000, color: "from-yellow-400 to-amber-500", bg: "bg-yellow-50", ring: "ring-yellow-400", text: "text-yellow-600" },
+  1: { label: "ต่ำ", icon: "💎", pts: 5, color: "from-emerald-400 to-teal-500", bg: "bg-emerald-50", ring: "ring-emerald-300", text: "text-emerald-600" },
+  2: { label: "กลาง", icon: "⚡", pts: 10, color: "from-amber-400 to-orange-500", bg: "bg-amber-50", ring: "ring-amber-300", text: "text-amber-600" },
+  3: { label: "สูง", icon: "🔥", pts: 25, color: "from-rose-400 to-red-500", bg: "bg-rose-50", ring: "ring-rose-300", text: "text-rose-600" },
+  4: { label: "สูงมาก", icon: "💥", pts: 50, color: "from-purple-400 to-violet-500", bg: "bg-purple-50", ring: "ring-purple-300", text: "text-purple-600" },
+  5: { label: "สำคัญ", icon: "⭐", pts: 75, color: "from-yellow-400 to-amber-500", bg: "bg-yellow-50", ring: "ring-yellow-400", text: "text-yellow-600" },
 };
 
 function parseDateInput(input: string): string | undefined {

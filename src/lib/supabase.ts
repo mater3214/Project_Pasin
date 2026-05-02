@@ -47,6 +47,18 @@ export async function createUser(user: Partial<User>): Promise<User | null> {
   return data as User;
 }
 
+export async function updateUserBio(userId: string, bio: string | null): Promise<boolean> {
+  const { error } = await getAdmin()
+    .from("users")
+    .update({ bio })
+    .eq("id", userId);
+  if (error) {
+    console.error("updateUserBio error:", error);
+    return false;
+  }
+  return true;
+}
+
 export async function getTodosByUser(userId: string): Promise<Todo[]> {
   const { data, error } = await getAdmin()
     .from("todos")
