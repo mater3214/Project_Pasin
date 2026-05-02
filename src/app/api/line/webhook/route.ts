@@ -9,7 +9,9 @@ import {
   updateTodo,
   getDashboardStats,
   getAdmin,
-  updateUserBio,
+  getLineState,
+  setLineState,
+  clearLineState,
 } from "@/lib/supabase";
 import {
   getUserProfile,
@@ -25,11 +27,11 @@ import {
   needRegisterFlex,
   addSuccessFlex,
   mainQuickReply,
-  priorityQuickReply,
   checkQuickReply,
   deleteQuickReply,
-  interactiveOptionsFlex,
-  templateConfirmFlex,
+  detailsOptionsFlex,
+  askTemplateFlex,
+  priorityOptionsFlex,
 } from "@/lib/line";
 import { Todo } from "@/types";
 import { createHash, randomBytes } from "crypto";
@@ -39,7 +41,6 @@ type WebhookEvent = {
   source: { userId: string };
   replyToken?: string;
   message?: { type: string; text: string };
-  postback?: { data: string };
 };
 
 const channelSecret = process.env.LINE_CHANNEL_SECRET!;
@@ -114,12 +115,11 @@ async function handleEvent(event: WebhookEvent) {
       return;
     }
 
-    // Allow text messages and postbacks
-    if (event.type !== "message" && event.type !== "postback") return;
-    if (event.type === "message" && (!event.message || event.message.type !== "text")) return;
+    // Only text messages
+    if (event.type !== "message" || !event.message || event.message.type !== "text") return;
 
     const lineUserId = event.source.userId;
-    const text = event.type === "message" ? event.message!.text : "";
+    const text = event.message.text;
     const replyToken = event.replyToken;
     if (!replyToken) return;
 
@@ -140,162 +140,7 @@ async function handleEvent(event: WebhookEvent) {
       return;
     }
 
-    // ─── State Machine for Conversational Flow ───
-    let userState = { state: "idle", draft: {} as any };
-    if (dbUser.bio) {
-      try { userState = JSON.parse(dbUser.bio); } catch (e) {}
-    }
-
-    // 1. Process Postback (Button Clicks)
-    if (event.type === "postback" && event.postback?.data) {
-      const params = new URLSearchParams(event.postback.data);
-      const action = params.get("action");
-
-      if (userState.state === "options") {
-        if (action === "set_priority") {
-          userState.state = "awaiting_priority";
-          await updateUserBio(dbUser.id, JSON.stringify(userState));
-          await replyTextWithQuickReply(replyToken, "เลือกความสำคัญ:", priorityQuickReply(userState.draft.title));
-          return;
-        }
-        if (action === "set_desc") {
-          userState.state = "awaiting_desc";
-          await updateUserBio(dbUser.id, JSON.stringify(userState));
-          await replyText(replyToken, "พิมพ์รายละเอียดที่ต้องการเพิ่ม:");
-          return;
-        }
-        if (action === "set_location") {
-          userState.state = "awaiting_location";
-          await updateUserBio(dbUser.id, JSON.stringify(userState));
-          await replyText(replyToken, "พิมพ์สถานที่:");
-          return;
-        }
-        if (action === "set_time") {
-          userState.state = "awaiting_time";
-          await updateUserBio(dbUser.id, JSON.stringify(userState));
-          await replyText(replyToken, "พิมพ์เวลา (รูปแบบ: 15/06/2026 14:30):");
-          return;
-        }
-        if (action === "confirm") {
-          userState.state = "template_confirm";
-          await updateUserBio(dbUser.id, JSON.stringify(userState));
-          await replyFlex(replyToken, "บันทึกเทมเพลต?", templateConfirmFlex());
-          return;
-        }
-      } else if (userState.state === "template_confirm") {
-        const isTemplate = action === "save_template";
-        const draft = userState.draft;
-        
-        const todo = await createTodo({
-          user_id: dbUser.id,
-          title: draft.title,
-          description: draft.description,
-          location: draft.location,
-          priority: draft.priority || 1,
-          points_reward: draft.points_reward || 25,
-          due_date: draft.due_date,
-        });
-
-        if (isTemplate) {
-          await getAdmin().from("todo_templates").insert({
-            user_id: dbUser.id,
-            title: draft.title,
-            description: draft.description,
-            location: draft.location,
-            priority: draft.priority || 1,
-            points_reward: draft.points_reward || 25,
-          });
-        }
-
-        await updateUserBio(dbUser.id, null);
-
-        if (todo) {
-          const priLabel = PRI_BY_NUM[draft.priority || 1]?.label || "ต่ำ";
-          await replyFlexWithQuickReply(replyToken,
-            `เพิ่ม "${draft.title}" สำเร็จ`,
-            addSuccessFlex(draft.title, priLabel, draft.points_reward || 25, draft.description, draft.location, draft.due_date),
-            mainQuickReply()
-          );
-        } else {
-          await replyTextWithQuickReply(replyToken, "เพิ่มไม่สำเร็จ กรุณาลองใหม่", mainQuickReply());
-        }
-        return;
-      }
-    }
-
-    // 2. Process State Machine for Text Inputs
-    if (event.type === "message") {
-      const { command, args } = parseCommand(text);
-
-      // Cancel command anytime
-      if ((command === "ยกเลิก" || command === "cancel") && userState.state !== "idle") {
-         await updateUserBio(dbUser.id, null);
-         await replyTextWithQuickReply(replyToken, "ยกเลิกการทำงานแล้ว", mainQuickReply());
-         return;
-      }
-
-      if (userState.state === "awaiting_title") {
-        userState.draft.title = text.trim();
-        userState.draft.priority = 1;
-        userState.draft.points_reward = 25;
-        userState.draft.priorityLabel = "ต่ำ (25pts)";
-        userState.state = "options";
-        await updateUserBio(dbUser.id, JSON.stringify(userState));
-        await replyFlex(replyToken, "ตัวเลือก", interactiveOptionsFlex(userState.draft));
-        return;
-      }
-      if (userState.state === "awaiting_desc") {
-        userState.draft.description = text.trim();
-        userState.state = "options";
-        await updateUserBio(dbUser.id, JSON.stringify(userState));
-        await replyFlex(replyToken, "ตัวเลือก", interactiveOptionsFlex(userState.draft));
-        return;
-      }
-      if (userState.state === "awaiting_location") {
-        userState.draft.location = text.trim();
-        userState.state = "options";
-        await updateUserBio(dbUser.id, JSON.stringify(userState));
-        await replyFlex(replyToken, "ตัวเลือก", interactiveOptionsFlex(userState.draft));
-        return;
-      }
-      if (userState.state === "awaiting_time") {
-        const dueDateISO = parseDateThai(text);
-        if (!dueDateISO) {
-           await replyText(replyToken, "รูปแบบเวลาไม่ถูกต้อง กรุณาพิมพ์ใหม่ (ตัวอย่าง: 15/06/2026 14:30) หรือพิมพ์ 'ยกเลิก'");
-           return;
-        }
-        userState.draft.due_date = dueDateISO;
-        userState.state = "options";
-        await updateUserBio(dbUser.id, JSON.stringify(userState));
-        await replyFlex(replyToken, "ตัวเลือก", interactiveOptionsFlex(userState.draft));
-        return;
-      }
-      if (userState.state === "awaiting_priority") {
-         const priInfo = PRIORITY_MAP[text.trim()];
-         if (!priInfo) {
-           await replyTextWithQuickReply(replyToken, "กรุณาเลือกความสำคัญจากเมนู", priorityQuickReply(userState.draft.title));
-           return;
-         }
-         userState.draft.priority = priInfo.priority;
-         userState.draft.points_reward = priInfo.points;
-         userState.draft.priorityLabel = priInfo.label;
-         userState.state = "options";
-         await updateUserBio(dbUser.id, JSON.stringify(userState));
-         await replyFlex(replyToken, "ตัวเลือก", interactiveOptionsFlex(userState.draft));
-         return;
-      }
-
-      // Prevent random text when expecting button clicks
-      if (userState.state !== "idle") {
-         if (userState.state === "options") {
-            await replyFlex(replyToken, "ตัวเลือก", interactiveOptionsFlex(userState.draft));
-            return;
-         }
-         if (userState.state === "template_confirm") {
-            await replyFlex(replyToken, "บันทึกเทมเพลต?", templateConfirmFlex());
-            return;
-         }
-      }
+    const { command, args } = parseCommand(text);
 
     // ─── Registration ───
     if (command === "สมัคร" || command === "register") {
@@ -345,15 +190,194 @@ async function handleEvent(event: WebhookEvent) {
       return;
     }
 
+    // ─── Cancel State ───
+    if (command === "ยกเลิก") {
+      await clearLineState(lineUserId);
+      await replyTextWithQuickReply(replyToken, "ยกเลิกการทำรายการแล้ว", mainQuickReply());
+      return;
+    }
+
+    // ─── State Machine ───
+    const stateRecord = await getLineState(lineUserId);
+    if (stateRecord) {
+      const state = stateRecord.state;
+      const tempData = stateRecord.temp_data;
+
+      switch (state) {
+        case "ADDING_TITLE":
+          tempData.title = text;
+          await setLineState(lineUserId, "ADDING_DETAILS", tempData);
+          await replyFlex(replyToken, "ต้องการเพิ่มข้อมูลอะไรอีกไหม?", detailsOptionsFlex());
+          return;
+
+        case "ADDING_DETAILS":
+          if (text === "รายละเอียด") {
+            await setLineState(lineUserId, "ADDING_DESC", tempData);
+            await replyText(replyToken, "กรุณากรอกรายละเอียดเพิ่มเติม:");
+            return;
+          } else if (text === "สถานที่") {
+            await setLineState(lineUserId, "ADDING_LOC", tempData);
+            await replyText(replyToken, "กรุณากรอกสถานที่:");
+            return;
+          } else if (text === "เวลา") {
+            await setLineState(lineUserId, "ADDING_TIME", tempData);
+            await replyText(replyToken, "กรุณากรอกเวลา (เช่น 05/05/2026 14:30):");
+            return;
+          } else if (text === "ความสำคัญ") {
+            await setLineState(lineUserId, "ADDING_PRIORITY", tempData);
+            await replyFlex(replyToken, "เลือกระดับความสำคัญ", priorityOptionsFlex());
+            return;
+          } else if (text === "ตกลง") {
+            await setLineState(lineUserId, "ASK_TEMPLATE", tempData);
+            await replyFlex(replyToken, "บันทึกเทมเพลตหรือไม่?", askTemplateFlex());
+            return;
+          } else {
+            await replyFlex(replyToken, "กรุณาเลือกจากเมนู หรือพิมพ์ ยกเลิก", detailsOptionsFlex());
+            return;
+          }
+
+        case "ADDING_DESC":
+          tempData.description = text;
+          await setLineState(lineUserId, "ADDING_DETAILS", tempData);
+          await replyFlex(replyToken, "บันทึกรายละเอียดแล้ว ต้องการเพิ่มข้อมูลอะไรอีกไหม?", detailsOptionsFlex());
+          return;
+
+        case "ADDING_LOC":
+          tempData.location = text;
+          await setLineState(lineUserId, "ADDING_DETAILS", tempData);
+          await replyFlex(replyToken, "บันทึกสถานที่แล้ว ต้องการเพิ่มข้อมูลอะไรอีกไหม?", detailsOptionsFlex());
+          return;
+
+        case "ADDING_TIME":
+          const dueDateISO = parseDateThai(text);
+          if (!dueDateISO) {
+             await replyText(replyToken, "รูปแบบเวลาไม่ถูกต้อง กรุณากรอกใหม่ (เช่น 05/05/2026 14:30) หรือพิมพ์ ยกเลิก");
+             return;
+          }
+          tempData.due_date = dueDateISO;
+          await setLineState(lineUserId, "ADDING_DETAILS", tempData);
+          await replyFlex(replyToken, "บันทึกเวลาแล้ว ต้องการเพิ่มข้อมูลอะไรอีกไหม?", detailsOptionsFlex());
+          return;
+
+        case "ADDING_PRIORITY":
+          const priInfo = PRIORITY_MAP[text];
+          if (!priInfo) {
+             await replyFlex(replyToken, "กรุณาเลือกความสำคัญจากเมนู", priorityOptionsFlex());
+             return;
+          }
+          tempData.priority = priInfo.priority as any;
+          tempData.points_reward = priInfo.points;
+          await setLineState(lineUserId, "ADDING_DETAILS", tempData);
+          await replyFlex(replyToken, `ตั้งความสำคัญเป็น ${priInfo.label} แล้ว ต้องการเพิ่มข้อมูลอะไรอีกไหม?`, detailsOptionsFlex());
+          return;
+
+        case "ASK_TEMPLATE":
+          let saveTemplate = false;
+          if (text === "บันทึกเทมเพลต") {
+            saveTemplate = true;
+          } else if (text === "ไม่บันทึก") {
+            saveTemplate = false;
+          } else {
+            await replyFlex(replyToken, "กรุณาเลือกจากเมนู", askTemplateFlex());
+            return;
+          }
+
+          const finalPriority = tempData.priority || 1;
+          const finalPoints = tempData.points_reward || 25;
+          const todoTitle = tempData.title!;
+
+          const todo = await createTodo({
+            user_id: dbUser.id,
+            title: todoTitle,
+            description: tempData.description,
+            location: tempData.location,
+            priority: finalPriority as any,
+            points_reward: finalPoints,
+            due_date: tempData.due_date,
+          });
+
+          if (saveTemplate) {
+             await getAdmin().from("todo_templates").insert({
+                user_id: dbUser.id,
+                title: todoTitle,
+                description: tempData.description,
+                location: tempData.location,
+                priority: finalPriority,
+                points_reward: finalPoints,
+             });
+          }
+
+          await clearLineState(lineUserId);
+
+          if (todo) {
+             const finalLabel = Object.values(PRIORITY_MAP).find(p => p.priority === todo.priority)?.label || "ต่ำ (25pts)";
+             // Format date display simply back to Thai original format if existed
+             const displayDate = tempData.due_date ? tempData.due_date.replace("T", " ") : undefined;
+             await replyFlexWithQuickReply(replyToken, 
+                `เพิ่ม "${todo.title}" สำเร็จ`,
+                addSuccessFlex(todo.title, finalLabel, finalPoints, todo.description, todo.location, displayDate),
+                mainQuickReply()
+             );
+          } else {
+             await replyTextWithQuickReply(replyToken, "เพิ่มไม่สำเร็จ กรุณาลองใหม่", mainQuickReply());
+          }
+          return;
+      }
+    }
+
     // ─── Commands ───
     switch (command) {
       case "เพิ่ม":
       case "add": {
-        // Start interactive workflow
-        userState.state = "awaiting_title";
-        userState.draft = {};
-        await updateUserBio(dbUser.id, JSON.stringify(userState));
-        await replyText(replyToken, "กรุณาพิมพ์ 'ชื่อรายการ' ที่คุณต้องการเพิ่ม:");
+        if (!args) {
+          // New stateful flow
+          await setLineState(lineUserId, "ADDING_TITLE", {});
+          await replyText(replyToken, "กรุณากรอกชื่อรายการ: (พิมพ์ ยกเลิก เพื่อยกเลิก)");
+          return;
+        }
+
+        // Parse pipe-separated: ชื่อ | ความสำคัญ | รายละเอียด | สถานที่ | วัน/เดือน/ปี เวลา
+        const pipeParts = args.split("|").map((s: string) => s.trim());
+        const todoTitle = pipeParts[0];
+        const priorityText = (pipeParts[1] || "").trim();
+        const todoDesc = pipeParts[2] || undefined;
+        const todoLocation = pipeParts[3] || undefined;
+        const todoDateText = pipeParts[4] || undefined;
+
+        const priInfo = PRIORITY_MAP[priorityText];
+
+        // Only title given → show Flex to choose priority
+        if (!priInfo && pipeParts.length <= 1) {
+          // Fallback to new flow if they just typed "เพิ่ม [ชื่อ]"
+          await setLineState(lineUserId, "ADDING_DETAILS", { title: todoTitle });
+          await replyFlex(replyToken, `ตั้งชื่อรายการเป็น "${todoTitle}" แล้ว\nต้องการเพิ่มข้อมูลอะไรอีกไหม?`, detailsOptionsFlex());
+          return;
+        }
+
+        const finalPriority = priInfo?.priority || 1;
+        const finalPoints = priInfo?.points || 25;
+        const finalLabel = priInfo?.label || "ต่ำ (25pts)";
+        const dueDateISO = todoDateText ? parseDateThai(todoDateText) : undefined;
+
+        const todo = await createTodo({
+          user_id: dbUser.id,
+          title: todoTitle,
+          description: todoDesc,
+          location: todoLocation,
+          priority: finalPriority as any,
+          points_reward: finalPoints,
+          due_date: dueDateISO,
+        });
+
+        if (todo) {
+          await replyFlexWithQuickReply(replyToken,
+            `เพิ่ม "${todoTitle}" สำเร็จ`,
+            addSuccessFlex(todoTitle, finalLabel, finalPoints, todoDesc, todoLocation, todoDateText),
+            mainQuickReply()
+          );
+        } else {
+          await replyTextWithQuickReply(replyToken, "เพิ่มไม่สำเร็จ กรุณาลองใหม่", mainQuickReply());
+        }
         break;
       }
 
@@ -479,7 +503,6 @@ async function handleEvent(event: WebhookEvent) {
         await replyFlexWithQuickReply(replyToken, "คำสั่ง Todolish", menuFlex(), mainQuickReply());
       }
     }
-    } // close if (event.type === "message")
   } catch (err: any) {
     console.error("handleEvent error:", err);
     // Try to send error reply

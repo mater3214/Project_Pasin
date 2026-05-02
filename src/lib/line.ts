@@ -84,17 +84,58 @@ export function mainQuickReply() {
   };
 }
 
-export function priorityQuickReply(title: string) {
-  // Truncate title to fit within 300 char limit for action text
-  const t = title.length > 20 ? title.substring(0, 20) : title;
+export function priorityOptionsFlex() {
   return {
-    items: [
-      { type: "action", action: { type: "message", label: "ต่ำ 25pts", text: `เพิ่ม ${t} | ต่ำ` } },
-      { type: "action", action: { type: "message", label: "กลาง 50pts", text: `เพิ่ม ${t} | กลาง` } },
-      { type: "action", action: { type: "message", label: "สูง 100pts", text: `เพิ่ม ${t} | สูง` } },
-      { type: "action", action: { type: "message", label: "สูงมาก 200pts", text: `เพิ่ม ${t} | สูงมาก` } },
-      { type: "action", action: { type: "message", label: "สำคัญ 1000pts", text: `เพิ่ม ${t} | สำคัญ` } },
-    ],
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        { type: "text", text: "เลือกระดับความสำคัญ:", weight: "bold", size: "sm" },
+        { type: "button", style: "secondary", action: { type: "message", label: "ต่ำ (25 pts)", text: "ต่ำ" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "กลาง (50 pts)", text: "กลาง" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "สูง (100 pts)", text: "สูง" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "สูงมาก (200 pts)", text: "สูงมาก" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "สำคัญ (1000 pts)", text: "สำคัญ" } }
+      ]
+    }
+  };
+}
+
+export function detailsOptionsFlex() {
+  return {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      contents: [
+        { type: "text", text: "ต้องการเพิ่มข้อมูลอะไรอีกไหม?", weight: "bold", size: "sm", wrap: true },
+        { type: "button", style: "secondary", height: "sm", action: { type: "message", label: "📝 รายละเอียด", text: "รายละเอียด" } },
+        { type: "button", style: "secondary", height: "sm", action: { type: "message", label: "📍 สถานที่", text: "สถานที่" } },
+        { type: "button", style: "secondary", height: "sm", action: { type: "message", label: "⏰ เวลา", text: "เวลา" } },
+        { type: "button", style: "secondary", height: "sm", action: { type: "message", label: "⭐ ความสำคัญ", text: "ความสำคัญ" } },
+        { type: "button", style: "primary", color: "#10b981", action: { type: "message", label: "✅ ตกลง (บันทึกเลย)", text: "ตกลง" } },
+        { type: "button", style: "link", color: "#ef4444", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } }
+      ]
+    }
+  };
+}
+
+export function askTemplateFlex() {
+  return {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      contents: [
+        { type: "text", text: "ต้องการบันทึกเป็นเทมเพลตสำหรับใช้ซ้ำหรือไม่?", weight: "bold", size: "sm", wrap: true },
+        { type: "button", style: "primary", action: { type: "message", label: "✅ บันทึกเทมเพลต", text: "บันทึกเทมเพลต" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "❌ ไม่บันทึก", text: "ไม่บันทึก" } }
+      ]
+    }
   };
 }
 
@@ -310,27 +351,37 @@ export function needRegisterFlex() {
 
 export function addSuccessFlex(title: string, priorityLabel: string, points: number, description?: string, location?: string, dueDate?: string) {
   const rows: any[] = [
-    { type: "box", layout: "horizontal", contents: [
-      { type: "text", text: "ความสำคัญ", size: "xs", color: "#999", flex: 3 },
-      { type: "text", text: priorityLabel, size: "xs", weight: "bold", flex: 5, align: "end" },
-    ]},
-    { type: "box", layout: "horizontal", contents: [
-      { type: "text", text: "คะแนน", size: "xs", color: "#999", flex: 3 },
-      { type: "text", text: `+${points} pts`, size: "xs", weight: "bold", color: "#16a34a", flex: 5, align: "end" },
-    ]},
+    {
+      type: "box", layout: "horizontal", contents: [
+        { type: "text", text: "ความสำคัญ", size: "xs", color: "#999", flex: 3 },
+        { type: "text", text: priorityLabel, size: "xs", weight: "bold", flex: 5, align: "end" },
+      ]
+    },
+    {
+      type: "box", layout: "horizontal", contents: [
+        { type: "text", text: "คะแนน", size: "xs", color: "#999", flex: 3 },
+        { type: "text", text: `+${points} pts`, size: "xs", weight: "bold", color: "#16a34a", flex: 5, align: "end" },
+      ]
+    },
   ];
-  if (description) rows.push({ type: "box", layout: "horizontal", contents: [
-    { type: "text", text: "รายละเอียด", size: "xs", color: "#999", flex: 3 },
-    { type: "text", text: description, size: "xs", flex: 5, align: "end", wrap: true },
-  ]});
-  if (location) rows.push({ type: "box", layout: "horizontal", contents: [
-    { type: "text", text: "สถานที่", size: "xs", color: "#999", flex: 3 },
-    { type: "text", text: location, size: "xs", flex: 5, align: "end" },
-  ]});
-  if (dueDate) rows.push({ type: "box", layout: "horizontal", contents: [
-    { type: "text", text: "กำหนด", size: "xs", color: "#999", flex: 3 },
-    { type: "text", text: dueDate, size: "xs", flex: 5, align: "end" },
-  ]});
+  if (description) rows.push({
+    type: "box", layout: "horizontal", contents: [
+      { type: "text", text: "รายละเอียด", size: "xs", color: "#999", flex: 3 },
+      { type: "text", text: description, size: "xs", flex: 5, align: "end", wrap: true },
+    ]
+  });
+  if (location) rows.push({
+    type: "box", layout: "horizontal", contents: [
+      { type: "text", text: "สถานที่", size: "xs", color: "#999", flex: 3 },
+      { type: "text", text: location, size: "xs", flex: 5, align: "end" },
+    ]
+  });
+  if (dueDate) rows.push({
+    type: "box", layout: "horizontal", contents: [
+      { type: "text", text: "กำหนด", size: "xs", color: "#999", flex: 3 },
+      { type: "text", text: dueDate, size: "xs", flex: 5, align: "end" },
+    ]
+  });
 
   return {
     type: "bubble",
@@ -345,69 +396,5 @@ export function addSuccessFlex(title: string, priorityLabel: string, points: num
       ],
       paddingAll: "16px",
     },
-  };
-}
-
-export function interactiveOptionsFlex(draft: any) {
-  return {
-    type: "bubble",
-    body: {
-      type: "box",
-      layout: "vertical",
-      contents: [
-        { type: "text", text: "เพิ่มรายละเอียดรายการ", weight: "bold", size: "md", color: "#6366f1" },
-        { type: "text", text: draft.title || "ไม่มีชื่อ", size: "lg", weight: "bold", margin: "md", wrap: true },
-        { type: "separator", margin: "md" },
-        { type: "box", layout: "vertical", margin: "md", spacing: "sm", contents: [
-          { type: "box", layout: "horizontal", contents: [
-            { type: "text", text: "ความสำคัญ", size: "xs", color: "#999", flex: 3 },
-            { type: "text", text: draft.priorityLabel || "ปานกลาง (50pts)", size: "xs", weight: "bold", flex: 5, align: "end" }
-          ]},
-          { type: "box", layout: "horizontal", contents: [
-            { type: "text", text: "รายละเอียด", size: "xs", color: "#999", flex: 3 },
-            { type: "text", text: draft.description || "-", size: "xs", flex: 5, align: "end", wrap: true }
-          ]},
-          { type: "box", layout: "horizontal", contents: [
-            { type: "text", text: "สถานที่", size: "xs", color: "#999", flex: 3 },
-            { type: "text", text: draft.location || "-", size: "xs", flex: 5, align: "end" }
-          ]},
-          { type: "box", layout: "horizontal", contents: [
-            { type: "text", text: "เวลา", size: "xs", color: "#999", flex: 3 },
-            { type: "text", text: draft.due_date ? draft.due_date.replace("T", " ") : "-", size: "xs", flex: 5, align: "end" }
-          ]}
-        ]},
-        { type: "separator", margin: "lg" },
-        { type: "text", text: "ต้องการเพิ่มข้อมูลส่วนไหน?", size: "sm", color: "#666666", margin: "md" },
-        { type: "box", layout: "horizontal", margin: "md", spacing: "sm", contents: [
-          { type: "button", style: "secondary", height: "sm", action: { type: "postback", label: "ความสำคัญ", data: "action=set_priority" } },
-          { type: "button", style: "secondary", height: "sm", action: { type: "postback", label: "รายละเอียด", data: "action=set_desc" } }
-        ]},
-        { type: "box", layout: "horizontal", margin: "sm", spacing: "sm", contents: [
-          { type: "button", style: "secondary", height: "sm", action: { type: "postback", label: "สถานที่", data: "action=set_location" } },
-          { type: "button", style: "secondary", height: "sm", action: { type: "postback", label: "เวลา", data: "action=set_time" } }
-        ]},
-        { type: "button", style: "primary", height: "sm", margin: "md", color: "#10b981", action: { type: "postback", label: "ตกลง (บันทึก)", data: "action=confirm" } }
-      ],
-      paddingAll: "20px"
-    }
-  };
-}
-
-export function templateConfirmFlex() {
-  return {
-    type: "bubble",
-    body: {
-      type: "box",
-      layout: "vertical",
-      contents: [
-        { type: "text", text: "บันทึกเป็นเทมเพลต?", weight: "bold", size: "md", color: "#f59e0b" },
-        { type: "text", text: "ต้องการบันทึกรายการนี้เป็นเทมเพลตสำหรับใช้ซ้ำในอนาคตหรือไม่?", size: "sm", color: "#666666", margin: "md", wrap: true },
-        { type: "box", layout: "horizontal", margin: "lg", spacing: "sm", contents: [
-          { type: "button", style: "secondary", height: "sm", action: { type: "postback", label: "ไม่บันทึก", data: "action=skip_template" } },
-          { type: "button", style: "primary", height: "sm", action: { type: "postback", label: "บันทึก", data: "action=save_template" } }
-        ]}
-      ],
-      paddingAll: "20px"
-    }
   };
 }

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { Todo, User, TodoLog, RankUser, DashboardStats, UserProfile } from "@/types";
+import { Todo, User, TodoLog, RankUser, DashboardStats, UserProfile, LineState, LineStateStep } from "@/types";
 import { createHash, randomBytes } from "crypto";
 
 function getClient() {
@@ -34,6 +34,29 @@ export async function getUserByLineId(lineUserId: string): Promise<User | null> 
   return data as User;
 }
 
+export async function getLineState(lineUserId: string): Promise<LineState | null> {
+  const { data, error } = await getAdmin()
+    .from("line_states")
+    .select("*")
+    .eq("line_user_id", lineUserId)
+    .single();
+  if (error) return null;
+  return data as LineState;
+}
+
+export async function setLineState(lineUserId: string, state: LineStateStep, tempData: Partial<Todo> & { template?: boolean }) {
+  await getAdmin().from("line_states").upsert({
+    line_user_id: lineUserId,
+    state,
+    temp_data: tempData,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+export async function clearLineState(lineUserId: string) {
+  await getAdmin().from("line_states").delete().eq("line_user_id", lineUserId);
+}
+
 export async function createUser(user: Partial<User>): Promise<User | null> {
   const { data, error } = await getAdmin()
     .from("users")
@@ -45,18 +68,6 @@ export async function createUser(user: Partial<User>): Promise<User | null> {
     return null;
   }
   return data as User;
-}
-
-export async function updateUserBio(userId: string, bio: string | null): Promise<boolean> {
-  const { error } = await getAdmin()
-    .from("users")
-    .update({ bio })
-    .eq("id", userId);
-  if (error) {
-    console.error("updateUserBio error:", error);
-    return false;
-  }
-  return true;
 }
 
 export async function getTodosByUser(userId: string): Promise<Todo[]> {

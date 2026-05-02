@@ -15,6 +15,22 @@ export interface User {
 export type TodoStatus = 'pending' | 'completed';
 export type TodoPriority = 1 | 2 | 3 | 4 | 5;
 
+export type LineStateStep = 
+  | 'ADDING_TITLE' 
+  | 'ADDING_DETAILS' 
+  | 'ADDING_DESC' 
+  | 'ADDING_LOC' 
+  | 'ADDING_TIME' 
+  | 'ADDING_PRIORITY' 
+  | 'ASK_TEMPLATE';
+
+export interface LineState {
+  line_user_id: string;
+  state: LineStateStep;
+  temp_data: Partial<Todo> & { template?: boolean };
+  updated_at: string;
+}
+
 export interface Todo {
   id: string;
   user_id: string;
