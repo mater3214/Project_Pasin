@@ -485,32 +485,32 @@ export function addSuccessFlex(title: string, priorityLabel: string, points: num
   const rows: any[] = [
     {
       type: "box", layout: "horizontal", contents: [
-        { type: "text", text: "ความสำคัญ", size: "xs", color: "#999", flex: 3 },
+        { type: "text", text: "ความสำคัญ", size: "xs", color: "#999999", flex: 3 },
         { type: "text", text: priorityLabel, size: "xs", weight: "bold", flex: 5, align: "end" },
       ]
     },
     {
       type: "box", layout: "horizontal", contents: [
-        { type: "text", text: "คะแนน", size: "xs", color: "#999", flex: 3 },
+        { type: "text", text: "คะแนน", size: "xs", color: "#999999", flex: 3 },
         { type: "text", text: `+${points} pts`, size: "xs", weight: "bold", color: "#16a34a", flex: 5, align: "end" },
       ]
     },
   ];
   if (description) rows.push({
     type: "box", layout: "horizontal", contents: [
-      { type: "text", text: "รายละเอียด", size: "xs", color: "#999", flex: 3 },
+      { type: "text", text: "รายละเอียด", size: "xs", color: "#999999", flex: 3 },
       { type: "text", text: description, size: "xs", flex: 5, align: "end", wrap: true },
     ]
   });
   if (location) rows.push({
     type: "box", layout: "horizontal", contents: [
-      { type: "text", text: "สถานที่", size: "xs", color: "#999", flex: 3 },
+      { type: "text", text: "สถานที่", size: "xs", color: "#999999", flex: 3 },
       { type: "text", text: location, size: "xs", flex: 5, align: "end" },
     ]
   });
   if (dueDate) rows.push({
     type: "box", layout: "horizontal", contents: [
-      { type: "text", text: "กำหนด", size: "xs", color: "#999", flex: 3 },
+      { type: "text", text: "กำหนด", size: "xs", color: "#999999", flex: 3 },
       { type: "text", text: dueDate, size: "xs", flex: 5, align: "end" },
     ]
   });
