@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         description: description || null,
         location: location || null,
         priority: priority ?? 1,
-        points_reward: Math.min(100, Math.max(1, points_reward ?? 5)),
+        points_reward: points_reward ?? 5,
       })
       .select()
       .single();

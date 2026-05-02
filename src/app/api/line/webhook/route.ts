@@ -32,6 +32,8 @@ import {
   detailsOptionsFlex,
   askTemplateFlex,
   priorityOptionsFlex,
+  templateOptionsCarousel,
+  todoListCarouselFlex,
 } from "@/lib/line";
 import { Todo } from "@/types";
 import { createHash, randomBytes } from "crypto";
@@ -62,11 +64,11 @@ function generatePassword(): string {
 
 // Priority system
 const PRIORITY_MAP: Record<string, { priority: number; points: number; label: string }> = {
-  "ต่ำ": { priority: 1, points: 25, label: "ต่ำ (25pts)" },
-  "กลาง": { priority: 2, points: 50, label: "กลาง (50pts)" },
-  "สูง": { priority: 3, points: 100, label: "สูง (100pts)" },
-  "สูงมาก": { priority: 4, points: 200, label: "สูงมาก (200pts)" },
-  "สำคัญ": { priority: 5, points: 1000, label: "สำคัญ (1000pts)" },
+  "ต่ำ": { priority: 1, points: 5, label: "ต่ำ (5pts)" },
+  "กลาง": { priority: 2, points: 10, label: "กลาง (10pts)" },
+  "สูง": { priority: 3, points: 25, label: "สูง (25pts)" },
+  "สูงมาก": { priority: 4, points: 40, label: "สูงมาก (40pts)" },
+  "สำคัญ": { priority: 5, points: 65, label: "สำคัญ (65pts)" },
 };
 
 const PRI_BY_NUM: Record<number, { label: string; points: number }> = {
@@ -206,6 +208,18 @@ async function handleEvent(event: WebhookEvent) {
       switch (state) {
         case "ADDING_TITLE":
           tempData.title = text;
+          await setLineState(lineUserId, "ADDING_PRIORITY", tempData);
+          await replyFlex(replyToken, "เลือกระดับความสำคัญ", priorityOptionsFlex());
+          return;
+
+        case "ADDING_PRIORITY":
+          const priInfoTitle = PRIORITY_MAP[text];
+          if (!priInfoTitle) {
+             await replyFlex(replyToken, "กรุณาเลือกความสำคัญจากเมนู", priorityOptionsFlex());
+             return;
+          }
+          tempData.priority = priInfoTitle.priority as any;
+          tempData.points_reward = priInfoTitle.points;
           await setLineState(lineUserId, "ADDING_DETAILS", tempData);
           await replyFlex(replyToken, "ต้องการเพิ่มข้อมูลอะไรอีกไหม?", detailsOptionsFlex());
           return;
@@ -257,18 +271,6 @@ async function handleEvent(event: WebhookEvent) {
           tempData.due_date = dueDateISO;
           await setLineState(lineUserId, "ADDING_DETAILS", tempData);
           await replyFlex(replyToken, "บันทึกเวลาแล้ว ต้องการเพิ่มข้อมูลอะไรอีกไหม?", detailsOptionsFlex());
-          return;
-
-        case "ADDING_PRIORITY":
-          const priInfo = PRIORITY_MAP[text];
-          if (!priInfo) {
-             await replyFlex(replyToken, "กรุณาเลือกความสำคัญจากเมนู", priorityOptionsFlex());
-             return;
-          }
-          tempData.priority = priInfo.priority as any;
-          tempData.points_reward = priInfo.points;
-          await setLineState(lineUserId, "ADDING_DETAILS", tempData);
-          await replyFlex(replyToken, `ตั้งความสำคัญเป็น ${priInfo.label} แล้ว ต้องการเพิ่มข้อมูลอะไรอีกไหม?`, detailsOptionsFlex());
           return;
 
         case "ASK_TEMPLATE":
@@ -327,10 +329,54 @@ async function handleEvent(event: WebhookEvent) {
 
     // ─── Commands ───
     switch (command) {
+      case "สร้างใหม่":
+        await setLineState(lineUserId, "ADDING_TITLE", {});
+        await replyText(replyToken, "กรุณากรอกชื่อรายการ: (พิมพ์ ยกเลิก เพื่อยกเลิก)");
+        return;
+
+      case "ใช้เทมเพลต": {
+        if (!args) return;
+        const { data: t } = await getAdmin().from("todo_templates").select("*").eq("id", args).single();
+        if (!t) {
+           await replyText(replyToken, "ไม่พบเทมเพลตนี้");
+           return;
+        }
+        const todo = await createTodo({
+           user_id: dbUser.id,
+           title: t.title,
+           description: t.description,
+           location: t.location,
+           priority: t.priority,
+           points_reward: t.points_reward,
+        });
+        if (todo) {
+            const finalLabel = Object.values(PRIORITY_MAP).find(p => p.priority === todo.priority)?.label || "ต่ำ (5pts)";
+            await replyFlexWithQuickReply(replyToken, 
+               `เพิ่ม "${todo.title}" สำเร็จ`,
+               addSuccessFlex(todo.title, finalLabel, todo.points_reward, todo.description, todo.location, undefined),
+               mainQuickReply()
+            );
+        } else {
+            await replyTextWithQuickReply(replyToken, "เพิ่มไม่สำเร็จ กรุณาลองใหม่", mainQuickReply());
+        }
+        return;
+      }
+
       case "เพิ่ม":
       case "add": {
         if (!args) {
-          // New stateful flow
+          // New stateful flow with templates
+          const { data: templates } = await getAdmin()
+            .from("todo_templates")
+            .select("*")
+            .eq("user_id", dbUser.id)
+            .order("created_at", { ascending: false });
+            
+          if (templates && templates.length > 0) {
+             await replyFlex(replyToken, "เลือกเทมเพลต หรือ สร้างรายการใหม่", templateOptionsCarousel(templates));
+             return;
+          }
+
           await setLineState(lineUserId, "ADDING_TITLE", {});
           await replyText(replyToken, "กรุณากรอกชื่อรายการ: (พิมพ์ ยกเลิก เพื่อยกเลิก)");
           return;
@@ -413,21 +459,12 @@ async function handleEvent(event: WebhookEvent) {
       case "รายการ":
       case "list": {
         const todos = await getTodosByUser(dbUser.id);
-        if (todos.length === 0) {
-          await replyTextWithQuickReply(replyToken, "ยังไม่มีรายการ\nพิมพ์ \"เพิ่ม\" เพื่อเริ่มต้น", mainQuickReply());
-          return;
+        const pendingWithIndex = todos.map((t: Todo, i: number) => ({ t, i: i + 1 })).filter(({ t }) => t.status !== "completed");
+        if (pendingWithIndex.length === 0) {
+           await replyTextWithQuickReply(replyToken, "ไม่มีรายการที่ต้องทำในตอนนี้ 🎉\nพิมพ์ \"เพิ่ม\" เพื่อเริ่มต้น", mainQuickReply());
+           break;
         }
-        const list = todos.map((t: Todo, i: number) => {
-          const status = t.status === "completed" ? "[done]" : "[  ]";
-          const pri = PRI_BY_NUM[t.priority]?.label || "ต่ำ";
-          return `${i + 1}. ${status} ${t.title} (${pri} +${t.points_reward}pts)`;
-        }).join("\n");
-
-        const pending = todos.filter((t: Todo) => t.status !== "completed");
-        await replyTextWithQuickReply(replyToken,
-          `รายการของคุณ (${todos.length}):\n\n${list}`,
-          pending.length > 0 ? checkQuickReply(todos.length) : mainQuickReply()
-        );
+        await replyFlexWithQuickReply(replyToken, "รายการของคุณ", todoListCarouselFlex(pendingWithIndex), mainQuickReply());
         break;
       }
 

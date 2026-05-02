@@ -93,11 +93,11 @@ export function priorityOptionsFlex() {
       spacing: "sm",
       contents: [
         { type: "text", text: "เลือกระดับความสำคัญ:", weight: "bold", size: "sm" },
-        { type: "button", style: "secondary", action: { type: "message", label: "ต่ำ (25 pts)", text: "ต่ำ" } },
-        { type: "button", style: "secondary", action: { type: "message", label: "กลาง (50 pts)", text: "กลาง" } },
-        { type: "button", style: "secondary", action: { type: "message", label: "สูง (100 pts)", text: "สูง" } },
-        { type: "button", style: "secondary", action: { type: "message", label: "สูงมาก (200 pts)", text: "สูงมาก" } },
-        { type: "button", style: "secondary", action: { type: "message", label: "สำคัญ (1000 pts)", text: "สำคัญ" } }
+        { type: "button", style: "secondary", action: { type: "message", label: "ต่ำ (5 pts)", text: "ต่ำ" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "กลาง (10 pts)", text: "กลาง" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "สูง (25 pts)", text: "สูง" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "สูงมาก (40 pts)", text: "สูงมาก" } },
+        { type: "button", style: "secondary", action: { type: "message", label: "สำคัญ (65 pts)", text: "สำคัญ" } }
       ]
     }
   };
@@ -137,6 +137,87 @@ export function askTemplateFlex() {
       ]
     }
   };
+}
+
+export function templateOptionsCarousel(templates: any[]) {
+  const bubbles = templates.slice(0, 9).map((t) => ({
+    type: "bubble",
+    size: "kilo",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: "📝 เทมเพลต", size: "xs", color: "#aaaaaa" },
+        { type: "text", text: t.title, weight: "bold", size: "sm", wrap: true, margin: "sm" },
+        { type: "text", text: `⭐ ${t.points_reward} pts`, size: "xs", color: "#eab308", margin: "xs" },
+        { type: "button", style: "primary", margin: "md", height: "sm", action: { type: "message", label: "เลือกอันนี้", text: `ใช้เทมเพลต ${t.id}` } }
+      ] as any[]
+    }
+  }));
+
+  bubbles.push({
+    type: "bubble",
+    size: "kilo",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: "✨ สร้างรายการใหม่", weight: "bold", size: "sm", margin: "md" },
+        { type: "text", text: "เริ่มพิมพ์ชื่อรายการ", size: "xs", color: "#aaaaaa", margin: "xs" },
+        { type: "button", style: "secondary", margin: "md", height: "sm", action: { type: "message", label: "➕ สร้างใหม่", text: "สร้างใหม่" } }
+      ] as any[]
+    }
+  });
+
+  return { type: "carousel", contents: bubbles };
+}
+
+export function todoListCarouselFlex(items: { t: any, i: number }[]) {
+  if (items.length === 0) {
+    return {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          { type: "text", text: "ไม่มีรายการที่ต้องทำในตอนนี้ 🎉", weight: "bold", wrap: true }
+        ]
+      }
+    };
+  }
+
+  const bubbles = items.slice(0, 10).map((item) => {
+    const todo = item.t;
+    const idx = item.i;
+
+    const contents: any[] = [
+      { type: "text", text: `รายการที่ ${idx}`, size: "xs", color: "#aaaaaa" },
+      { type: "text", text: todo.title, weight: "bold", size: "md", wrap: true, margin: "sm" },
+    ];
+    if (todo.description) {
+      contents.push({ type: "text", text: todo.description, size: "xs", color: "#666666", wrap: true, margin: "xs" });
+    }
+    contents.push({ 
+      type: "box", layout: "horizontal", margin: "md", contents: [
+        { type: "text", text: "รางวัล", size: "xs", color: "#aaaaaa", flex: 1 },
+        { type: "text", text: `⭐ ${todo.points_reward} pts`, size: "xs", weight: "bold", color: "#eab308", flex: 2 }
+      ]
+    });
+
+    return {
+      type: "bubble",
+      size: "kilo",
+      body: { type: "box", layout: "vertical", spacing: "sm", contents },
+      footer: {
+        type: "box", layout: "vertical", spacing: "sm", contents: [
+          { type: "button", style: "primary", color: "#10b981", height: "sm", action: { type: "message", label: "✅ เช็ค", text: `เช็ค ${idx}` } },
+          { type: "button", style: "link", color: "#ef4444", height: "sm", action: { type: "message", label: "🗑️ ลบ", text: `ลบ ${idx}` } }
+        ]
+      }
+    };
+  });
+
+  return { type: "carousel", contents: bubbles };
 }
 
 export function checkQuickReply(count: number) {
